@@ -37,7 +37,14 @@ h1, h2, h3 {
 # 🏢 HEADER
 # =========================
 st.title("💼 Matching Inteligente de Vagas")
-st.caption("Análise baseada em Skills • Rol • Taxa • Contexto da vaga")
+
+col1, col2 = st.columns([3,1])
+
+with col1:
+    st.caption("Análise baseada em Skills • Rol • Taxa • Contexto da vaga")
+
+with col2:
+    st.markdown("### 🏢 Minsait | Indra")
 
 st.divider()
 
@@ -270,3 +277,14 @@ if file_vagas and file_colab:
             vagas_base.to_csv(index=False).encode("utf-8"),
             "vagas_match.csv"
         )
+
+# =========================
+# 🧾 FOOTER
+# =========================
+st.markdown("""
+<hr style="margin-top:50px; margin-bottom:10px;">
+<div style="text-align:center; color:gray; font-size:14px;">
+    Desenvolvido por <b>Jonathan Marquezini</b> • UGR<br>
+    <span style="font-size:12px;">Matching Inteligente de Vagas v1.0</span>
+</div>
+""", unsafe_allow_html=True)
