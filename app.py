@@ -44,7 +44,7 @@ with col1:
     st.caption("Análise baseada em Skills • Rol • Taxa • Contexto da vaga")
 
 with col2:
-    st.markdown("### 🏢 Minsait | Indra")
+    st.markdown("### 🏢 INDRA GROUP")
 
 st.divider()
 
