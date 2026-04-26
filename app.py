@@ -44,7 +44,7 @@ with col1:
     st.caption("Análise baseada em Skills • Rol • Taxa • Contexto da vaga")
 
 with col2:
-    st.markdown("### 🏢 INDRA GROUP")
+    st.markdown("### 🏢 Minsait | Indra")
 
 st.divider()
 
@@ -193,7 +193,15 @@ if file_vagas and file_colab:
     # =========================
     if st.button("🚀 Buscar Vagas Compatíveis"):
 
-        vagas["texto"] = vagas["skills_tratadas"] + " " + get_coluna(vagas,"area")
+        vagas["texto"] = (
+            vagas["skills_tratadas"] + " " +
+            get_coluna(vagas,"area") + " " +
+            get_coluna(vagas,"perfil profesional") + " " +
+            get_coluna(vagas,"perfil solicitado resumido") + " " +
+            get_coluna(vagas,"perfil solicitado detallado") + " " +
+            get_coluna(vagas,"conocimientos funcionales")
+        )
+
         taxa_colab = tratar_taxa(perfil_row.get("taxa"))
 
         vagas_filtradas = vagas[vagas.apply(
@@ -229,6 +237,10 @@ if file_vagas and file_colab:
             "rol reporting",
             "tasa máxima deseable",
             "match",
+            "perfil profesional",
+            "perfil solicitado resumido",
+            "perfil solicitado detallado",
+            "conocimientos funcionales",
             "conocimientos tecnicos"
         ]], use_container_width=True)
 
@@ -240,7 +252,15 @@ if file_vagas and file_colab:
     if st.button("📊 Gerar Base Completa"):
 
         vagas_base = vagas.copy()
-        vagas_base["texto"] = vagas_base["skills_tratadas"] + " " + get_coluna(vagas_base,"area")
+
+        vagas_base["texto"] = (
+            vagas_base["skills_tratadas"] + " " +
+            get_coluna(vagas_base,"area") + " " +
+            get_coluna(vagas_base,"perfil profesional") + " " +
+            get_coluna(vagas_base,"perfil solicitado resumido") + " " +
+            get_coluna(vagas_base,"perfil solicitado detallado") + " " +
+            get_coluna(vagas_base,"conocimientos funcionales")
+        )
 
         vaga_para = {i: [] for i in range(len(vagas_base))}
 
