@@ -27,9 +27,6 @@ h1, h2, h3 {
     height: 45px;
     font-weight: bold;
 }
-.stTextInput>div>div>input {
-    border-radius: 8px;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -37,82 +34,74 @@ h1, h2, h3 {
 # 🏢 HEADER
 # =========================
 st.title("💼 Matching Inteligente de Vagas")
-
-col1, col2 = st.columns([3,1])
-
-with col1:
-    st.caption("Análise baseada em Skills • Rol • Taxa • Contexto da vaga")
-
-with col2:
-    st.markdown("### 🏢 Minsait | Indra")
+st.caption("Skills • Rol • Taxa • Contexto enriquecido")
 
 st.divider()
 
 # =========================
-# 🔧 LIMPEZA DE SKILLS
+# 🔧 LIMPEZA
 # =========================
 def limpar_texto(texto):
     if pd.isna(texto):
         return ""
-    
     texto = str(texto).lower()
     partes = texto.split("//")
-    skills_limpas = []
 
+    resultado = []
     for p in partes:
         p = p.strip()
         p = re.sub(r"\(.*?\)", "", p)
         p = p.replace("tecnologías digitales /", "")
         p = re.sub(r"princ\..*", "", p)
-        skills_limpas.append(p.strip())
+        resultado.append(p.strip())
 
-    return " ".join(skills_limpas)
+    return " ".join(resultado)
 
-# =========================
-# 🔧 COLUNA SEGURA
-# =========================
+def limpar_texto_modelo(texto):
+    if pd.isna(texto):
+        return ""
+    return str(texto)
+
 def get_coluna(df, nome):
-    return df[nome].astype(str) if nome in df.columns else pd.Series([""] * len(df))
+    return df[nome].fillna("").astype(str) if nome in df.columns else pd.Series([""] * len(df))
 
 # =========================
-# 🧠 PARSE DE ROL
+# 🧠 ROL
 # =========================
 def parse_rol(rol):
     if pd.isna(rol):
         return {"tipo": "", "nivel": 0}
 
-    rol = str(rol).strip().lower()
+    rol = str(rol).lower().strip()
     partes = rol.split()
+
+    mapa = {"i":1,"ii":2,"iii":3,"iv":4,"v":5}
 
     if len(partes) == 1:
         return {"tipo": partes[0], "nivel": 0}
 
-    mapa_nivel = {"i":1,"ii":2,"iii":3,"iv":4,"v":5}
-    return {"tipo": partes[0], "nivel": mapa_nivel.get(partes[1], 0)}
+    return {"tipo": partes[0], "nivel": mapa.get(partes[1], 0)}
 
-# =========================
-# 🧠 REGRA DE ROL
-# =========================
 def rol_compativel(rol_colab, rol_vaga):
-    colab = parse_rol(rol_colab)
-    vaga = parse_rol(rol_vaga)
+    c = parse_rol(rol_colab)
+    v = parse_rol(rol_vaga)
 
-    if colab["tipo"] == "sp":
-        return (vaga["tipo"] == "sp" or (vaga["tipo"] == "t" and vaga["nivel"] <= 1))
+    if c["tipo"] == "sp":
+        return (v["tipo"] == "sp" or (v["tipo"] == "t" and v["nivel"] <= 1))
 
-    if colab["tipo"] == "d":
-        return vaga["tipo"] == "d"
+    if c["tipo"] == "d":
+        return v["tipo"] == "d"
 
-    if colab["tipo"] == "g":
-        return vaga["tipo"] in ["g", "d"]
+    if c["tipo"] == "g":
+        return v["tipo"] in ["g","d"]
 
-    if colab["tipo"] == "t":
-        return vaga["tipo"] == "t" and colab["nivel"] >= vaga["nivel"]
+    if c["tipo"] == "t":
+        return v["tipo"] == "t" and c["nivel"] >= v["nivel"]
 
-    if colab["tipo"] == "s":
-        return vaga["tipo"] == "s" and colab["nivel"] >= vaga["nivel"]
+    if c["tipo"] == "s":
+        return v["tipo"] == "s" and c["nivel"] >= v["nivel"]
 
-    if colab["tipo"] == "cd":
+    if c["tipo"] == "cd":
         return True
 
     return False
@@ -131,47 +120,42 @@ def tratar_taxa(valor):
 # =========================
 # 🧠 BOOST
 # =========================
-def tem_skill_direta(perfil, vaga_texto):
-    return any(skill in vaga_texto for skill in perfil.split())
+def tem_skill_direta(perfil, vaga):
+    return any(p in vaga for p in perfil.split())
 
 # =========================
 # 📂 UPLOAD
 # =========================
-st.subheader("📂 Upload das Bases")
+st.subheader("📂 Upload")
 
 col1, col2 = st.columns(2)
+file_vagas = col1.file_uploader("Base de Vagas", type=["csv","xlsx"])
+file_colab = col2.file_uploader("Base de Colaboradores", type=["csv","xlsx"])
 
-with col1:
-    file_vagas = st.file_uploader("Base de Vagas", type=["csv", "xlsx"])
-
-with col2:
-    file_colab = st.file_uploader("Base de Colaboradores", type=["csv", "xlsx"])
-
+# =========================
+# 🚀 PROCESSAMENTO
+# =========================
 if file_vagas and file_colab:
 
     vagas = pd.read_csv(file_vagas) if file_vagas.name.endswith(".csv") else pd.read_excel(file_vagas)
     colab = pd.read_csv(file_colab) if file_colab.name.endswith(".csv") else pd.read_excel(file_colab)
 
-    vagas.columns = vagas.columns.str.strip().str.lower()
-    colab.columns = colab.columns.str.strip().str.lower()
+    vagas.columns = vagas.columns.str.lower().str.strip()
+    colab.columns = colab.columns.str.lower().str.strip()
 
     if "necesidad" in vagas.columns:
         vagas = vagas.drop_duplicates(subset=["necesidad"])
 
-    vagas["skills_tratadas"] = vagas["conocimientos tecnicos"].apply(limpar_texto)
+    vagas["skills_tratadas"] = get_coluna(vagas,"conocimientos tecnicos").apply(limpar_texto)
 
-    st.success("Bases carregadas com sucesso")
-
-    st.divider()
+    st.success("Bases carregadas 🚀")
 
     # =========================
-    # 🔍 BUSCA
+    # 🔎 SELEÇÃO
     # =========================
-    st.subheader("🔎 Seleção de Colaborador")
-
     coluna_nome = next((c for c in ["nome","colaborador","funcionario"] if c in colab.columns), None)
 
-    busca = st.text_input("Digite nome ou matrícula")
+    busca = st.text_input("Buscar colaborador")
 
     if busca:
         filtro = colab[
@@ -182,38 +166,50 @@ if file_vagas and file_colab:
         filtro = colab
 
     selecionado = st.selectbox("Selecione", filtro[coluna_nome])
-
     perfil_row = colab[colab[coluna_nome] == selecionado].iloc[0]
-    perfil_texto = str(perfil_row.get("skills","")).lower()
+
+    perfil_texto = limpar_texto_modelo(perfil_row.get("skills","")).lower()
 
     st.divider()
 
     # =========================
     # 🔎 MATCH
     # =========================
-    if st.button("🚀 Buscar Vagas Compatíveis"):
+    if st.button("🚀 Buscar Vagas"):
 
-        vagas["texto"] = vagas["skills_tratadas"] + " " + get_coluna(vagas,"area")
+        vagas["texto"] = (
+            get_coluna(vagas,"skills_tratadas") + " " +
+            get_coluna(vagas,"area") + " " +
+            get_coluna(vagas,"perfil profesional") + " " +
+            get_coluna(vagas,"perfil solicitado resumido") + " " +
+            get_coluna(vagas,"perfil solicitado detallado") + " " +
+            get_coluna(vagas,"conocimientos funcionales")
+        )
+
         taxa_colab = tratar_taxa(perfil_row.get("taxa"))
 
         vagas_filtradas = vagas[vagas.apply(
-            lambda row: rol_compativel(perfil_row.get("rol"), row.get("rol reporting")) and
-                        taxa_colab <= tratar_taxa(row.get("tasa máxima deseable")),
+            lambda r: rol_compativel(perfil_row.get("rol"), r.get("rol reporting")) and
+                      taxa_colab <= tratar_taxa(r.get("tasa máxima deseable")),
             axis=1
         )].copy()
 
-        if len(vagas_filtradas) == 0:
+        if vagas_filtradas.empty:
             st.warning("Nenhuma vaga encontrada")
             st.stop()
 
         vectorizer = TfidfVectorizer()
-        vectors = vectorizer.fit_transform(vagas_filtradas["texto"].tolist() + [perfil_texto])
+
+        corpus = vagas_filtradas["texto"].apply(limpar_texto_modelo).tolist()
+        corpus.append(perfil_texto)
+
+        vectors = vectorizer.fit_transform(corpus)
         scores = cosine_similarity(vectors[-1], vectors[:-1])[0]
 
         final_scores = []
-        for i, row in enumerate(vagas_filtradas["texto"]):
+        for i, txt in enumerate(vagas_filtradas["texto"]):
             score = scores[i]
-            if tem_skill_direta(perfil_texto, row):
+            if tem_skill_direta(perfil_texto, txt):
                 score += 0.5
             final_scores.append(score)
 
@@ -229,40 +225,53 @@ if file_vagas and file_colab:
             "rol reporting",
             "tasa máxima deseable",
             "match",
-            "conocimientos tecnicos",
+            "perfil profesional",
+            "perfil solicitado resumido",
+            "perfil solicitado detallado",
             "conocimientos funcionales",
-            "Perfil solicitado resumido",
-            "Perfil solicitado detallado",
+            "conocimientos tecnicos"
         ]], use_container_width=True)
-
-    st.divider()
 
     # =========================
     # 📊 BASE FINAL
     # =========================
-    if st.button("📊 Gerar Base Completa"):
+    if st.button("📊 Gerar Base"):
 
         vagas_base = vagas.copy()
-        vagas_base["texto"] = vagas_base["skills_tratadas"] + " " + get_coluna(vagas_base,"area")
+
+        vagas_base["texto"] = (
+            get_coluna(vagas_base,"skills_tratadas") + " " +
+            get_coluna(vagas_base,"area") + " " +
+            get_coluna(vagas_base,"perfil profesional") + " " +
+            get_coluna(vagas_base,"perfil solicitado resumido") + " " +
+            get_coluna(vagas_base,"perfil solicitado detallado") + " " +
+            get_coluna(vagas_base,"conocimientos funcionales")
+        )
 
         vaga_para = {i: [] for i in range(len(vagas_base))}
 
-        for _, colab_row in colab.iterrows():
-            nome = colab_row[coluna_nome]
-            perfil = str(colab_row.get("skills","")).lower()
-            taxa = tratar_taxa(colab_row.get("taxa"))
+        for _, c in colab.iterrows():
+
+            nome = c[coluna_nome]
+            perfil = limpar_texto_modelo(c.get("skills","")).lower()
+            taxa = tratar_taxa(c.get("taxa"))
 
             vectorizer = TfidfVectorizer()
-            vectors = vectorizer.fit_transform(vagas_base["texto"].tolist() + [perfil])
+
+            corpus = vagas_base["texto"].apply(limpar_texto_modelo).tolist()
+            corpus.append(perfil)
+
+            vectors = vectorizer.fit_transform(corpus)
             scores = cosine_similarity(vectors[-1], vectors[:-1])[0]
 
             for i, row in vagas_base.iterrows():
                 score = scores[i]
+
                 if tem_skill_direta(perfil, row["texto"]):
                     score += 0.5
 
                 if (
-                    rol_compativel(colab_row.get("rol"), row.get("rol reporting")) and
+                    rol_compativel(c.get("rol"), row.get("rol reporting")) and
                     taxa <= tratar_taxa(row.get("tasa máxima deseable")) and
                     score >= 0.10
                 ):
@@ -280,14 +289,3 @@ if file_vagas and file_colab:
             vagas_base.to_csv(index=False).encode("utf-8"),
             "vagas_match.csv"
         )
-
-# =========================
-# 🧾 FOOTER
-# =========================
-st.markdown("""
-<hr style="margin-top:50px; margin-bottom:10px;">
-<div style="text-align:center; color:gray; font-size:14px;">
-    Desenvolvido por <b>Jonathan Marquezini</b> • UGR<br>
-    <span style="font-size:12px;">Matching Inteligente de Vagas v1.0</span>
-</div>
-""", unsafe_allow_html=True)
