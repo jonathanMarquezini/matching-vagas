@@ -229,7 +229,6 @@ if file_vagas and file_colab:
             "rol reporting",
             "tasa máxima deseable",
             "match",
-            "Perfil Profesional"
             "conocimientos tecnicos",
             "conocimientos funcionales",
             "Perfil solicitado resumido",
