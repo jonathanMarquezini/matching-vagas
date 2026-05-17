@@ -602,21 +602,6 @@ if file_vagas and file_colab:
 # =========================
 # 🧾 FOOTER
 # =========================
-st.markdown(
-    """
-    <div class="footer-container">
+footer_html = "<div class='footer-container'><div class='footer-title'>Matching Inteligente de Vagas • v3.0</div><div class='footer-text'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas.<br><br>Desenvolvido por <b>Jonathan Marquezini</b> • UGR</div></div>"
 
-        <div class="footer-title">
-            Matching Inteligente de Vagas • v3.0
-        </div>
-
-        <div class="footer-text">
-            Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas.
-            <br><br>
-            Desenvolvido por <b>Jonathan Marquezini</b> • UGR
-        </div>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown(footer_html, unsafe_allow_html=True)
