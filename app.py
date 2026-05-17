@@ -585,18 +585,38 @@ if file_vagas and file_colab:
 # =========================
 # 🧾 FOOTER
 # =========================
-st.markdown("""
-<div class="footer-box">
+st.markdown(
+    """
+    <div style="
+        background-color:#161b22;
+        border:1px solid #30363d;
+        border-radius:16px;
+        padding:30px;
+        text-align:center;
+        margin-top:40px;
+        margin-bottom:20px;
+    ">
 
-    <div class="footer-title">
-        Matching Inteligente de Vagas • v3.0
+        <div style="
+            color:#f0f6fc;
+            font-size:22px;
+            font-weight:700;
+            margin-bottom:15px;
+        ">
+            Matching Inteligente de Vagas • v3.0
+        </div>
+
+        <div style="
+            color:#8b949e;
+            font-size:14px;
+            line-height:1.8;
+        ">
+            Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas.
+            <br><br>
+            Desenvolvido por <b>Jonathan Marquezini</b> • UGR
+        </div>
+
     </div>
-
-    <div class="footer-text">
-        Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas.
-        <br><br>
-        Desenvolvido por <b>Jonathan Marquezini</b> • UGR
-    </div>
-
-</div>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
