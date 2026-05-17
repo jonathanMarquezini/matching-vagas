@@ -552,7 +552,7 @@ if file_vagas and file_colab:
 
             titulo = f"{row.get('proyecto', 'Projeto')} | Match: {round(row['match'] * 100, 2)}%"
 
-            with st.expander(titulo):
+            with st.expander(titulo, expanded=False):
 
                 st.markdown(f"""
                 ### 📌 Informações da Vaga
