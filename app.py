@@ -1,195 +1,122 @@
 import streamlit as st
 import pandas as pd
 import re
-from io import BytesIO
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
+from io import BytesIO
 
-# =====================================================
-# 🎨 CONFIGURAÇÃO DA PÁGINA
-# =====================================================
+# =========================
+# 🎨 CONFIG VISUAL
+# =========================
 st.set_page_config(
     page_title="Matching Inteligente de Vagas",
-    layout="wide",
-    page_icon="💼"
+    layout="wide"
 )
 
-# =====================================================
-# 🎨 ESTILO VISUAL
-# =====================================================
 st.markdown("""
 <style>
 
-html, body, [class*="css"] {
-    font-family: 'Segoe UI', sans-serif;
-}
-
 .main {
-    background-color: #0b1120;
+    background-color: #0e1117;
 }
 
 .block-container {
     padding-top: 2rem;
     padding-bottom: 2rem;
-    max-width: 95%;
 }
 
-/* =========================
-HEADER
-========================= */
-
-.top-title {
-    font-size: 54px;
-    font-weight: 700;
-    color: white;
-    margin-bottom: 5px;
+h1, h2, h3 {
+    color: #e6edf3;
 }
-
-.sub-title {
-    font-size: 16px;
-    color: #94a3b8;
-    margin-top: -5px;
-}
-
-.company-title {
-    text-align: right;
-    font-size: 34px;
-    font-weight: 700;
-    color: white;
-    margin-top: 15px;
-}
-
-/* =========================
-CARDS
-========================= */
-
-.info-card {
-    background: linear-gradient(145deg, #111827, #0f172a);
-    border: 1px solid #1e293b;
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 15px;
-}
-
-/* =========================
-BOTÕES
-========================= */
 
 .stButton > button {
-    width: 100%;
-    height: 48px;
+    background-color: #1f6feb;
+    color: white;
     border-radius: 10px;
     border: none;
-    background: linear-gradient(90deg, #2563eb, #1d4ed8);
-    color: white;
-    font-size: 16px;
+    height: 45px;
     font-weight: 600;
+    width: 100%;
 }
 
 .stButton > button:hover {
-    background: linear-gradient(90deg, #3b82f6, #2563eb);
+    background-color: #388bfd;
     color: white;
-}
-
-/* =========================
-INPUTS
-========================= */
-
-.stTextInput input {
-    background-color: #111827;
-    border: 1px solid #334155;
-    color: white;
-    border-radius: 10px;
 }
 
 div[data-baseweb="select"] > div {
-    background-color: #111827;
-    border: 1px solid #334155;
-    border-radius: 10px;
+    background-color: #1c1f26;
 }
 
-/* =========================
-DATAFRAME
-========================= */
+.stTextInput input {
+    background-color: #1c1f26;
+}
 
 [data-testid="stDataFrame"] {
-    border: 1px solid #1e293b;
     border-radius: 12px;
     overflow: hidden;
 }
 
-/* =========================
-METRIC
-========================= */
-
-[data-testid="metric-container"] {
-    background: linear-gradient(145deg, #111827, #0f172a);
-    border: 1px solid #1e293b;
-    padding: 15px;
-    border-radius: 14px;
-}
-
-/* =========================
-EXPANDER
-========================= */
-
-.streamlit-expanderHeader {
-    font-size: 16px;
+.stDownloadButton > button {
+    background-color: #238636 !important;
+    color: white !important;
+    border-radius: 10px;
+    border: none;
+    height: 45px;
     font-weight: 600;
+    width: 100%;
 }
 
-/* =========================
-FOOTER
-========================= */
+.stDownloadButton > button:hover {
+    background-color: #2ea043 !important;
+}
 
-.footer {
+.footer-box {
+    background-color: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 16px;
+    padding: 30px;
     text-align: center;
-    color: #94a3b8;
-    font-size: 13px;
-    padding-top: 20px;
-    padding-bottom: 10px;
+    margin-top: 40px;
+    margin-bottom: 20px;
 }
 
 .footer-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: white;
+    color: #f0f6fc;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 12px;
 }
 
-hr {
-    border-color: #1e293b;
+.footer-text {
+    color: #8b949e;
+    font-size: 14px;
+    line-height: 1.8;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# =====================================================
+# =========================
 # 🏢 HEADER
-# =====================================================
+# =========================
+st.title("💼 Matching Inteligente de Vagas")
+
 col1, col2 = st.columns([4, 1])
 
 with col1:
-    st.markdown("""
-    <div class="top-title">
-        💼 Matching Inteligente de Vagas
-    </div>
-    <div class="sub-title">
-        Plataforma corporativa para análise estratégica de aderência entre colaboradores e oportunidades internas com base em perfil profissional, senioridade, taxa e competências técnicas.
-    </div>
-    """, unsafe_allow_html=True)
+    st.caption(
+        "Plataforma corporativa de apoio estratégico para identificação de aderência entre colaboradores e oportunidades internas."
+    )
 
 with col2:
-    st.markdown("""
-    <div class="company-title">
-        🏢 Indra Group | Minsait
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("## 🏢 Indra Group | Minsait")
 
 st.divider()
 
-# =====================================================
+# =========================
 # 🔧 LIMPEZA TEXTO
-# =====================================================
+# =========================
 def limpar_texto(texto):
 
     if pd.isna(texto):
@@ -207,9 +134,9 @@ def limpar_texto(texto):
 
     return texto.strip()
 
-# =====================================================
-# 🔧 TEXTO MODELO
-# =====================================================
+# =========================
+# 🔧 EVITAR NaN
+# =========================
 def limpar_texto_modelo(texto):
 
     if pd.isna(texto):
@@ -217,9 +144,9 @@ def limpar_texto_modelo(texto):
 
     return str(texto)
 
-# =====================================================
+# =========================
 # 🔧 COLUNA SEGURA
-# =====================================================
+# =========================
 def get_coluna(df, nome):
 
     if nome in df.columns:
@@ -227,9 +154,9 @@ def get_coluna(df, nome):
 
     return pd.Series([""] * len(df))
 
-# =====================================================
-# 🧠 PARSE ROL
-# =====================================================
+# =========================
+# 🧠 PARSE DE ROL
+# =========================
 def parse_rol(rol):
 
     if pd.isna(rol):
@@ -259,9 +186,9 @@ def parse_rol(rol):
         "nivel": nivel
     }
 
-# =====================================================
-# 🧠 REGRAS ROL
-# =====================================================
+# =========================
+# 🧠 REGRA DE ROL
+# =========================
 def rol_compativel(rol_colab, rol_vaga):
 
     colab = parse_rol(rol_colab)
@@ -272,9 +199,9 @@ def rol_compativel(rol_colab, rol_vaga):
 
     return colab["nivel"] >= vaga["nivel"]
 
-# =====================================================
+# =========================
 # 💰 TAXA
-# =====================================================
+# =========================
 def tratar_taxa(valor):
 
     if pd.isna(valor):
@@ -292,9 +219,9 @@ def tratar_taxa(valor):
     except:
         return 0
 
-# =====================================================
-# 🧠 BOOST SKILLS
-# =====================================================
+# =========================
+# 🧠 BOOST SKILL
+# =========================
 def tem_skill_direta(perfil, vaga_texto):
 
     palavras = perfil.split()
@@ -306,9 +233,9 @@ def tem_skill_direta(perfil, vaga_texto):
 
     return False
 
-# =====================================================
+# =========================
 # 📥 GERAR EXCEL
-# =====================================================
+# =========================
 def gerar_excel(df):
 
     output = BytesIO()
@@ -316,13 +243,13 @@ def gerar_excel(df):
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Matching")
 
-    processed_data = output.getvalue()
+    output.seek(0)
 
-    return processed_data
+    return output
 
-# =====================================================
+# =========================
 # 📂 UPLOAD
-# =====================================================
+# =========================
 st.subheader("📂 Upload das Bases")
 
 col1, col2 = st.columns(2)
@@ -339,14 +266,14 @@ with col2:
         type=["csv", "xlsx"]
     )
 
-# =====================================================
+# =========================
 # 🚀 PROCESSAMENTO
-# =====================================================
+# =========================
 if file_vagas and file_colab:
 
-    # =====================================================
+    # =========================
     # 📂 LEITURA
-    # =====================================================
+    # =========================
     vagas = (
         pd.read_csv(file_vagas)
         if file_vagas.name.endswith(".csv")
@@ -362,15 +289,15 @@ if file_vagas and file_colab:
     vagas.columns = vagas.columns.str.strip().str.lower()
     colab.columns = colab.columns.str.strip().str.lower()
 
-    # =====================================================
+    # =========================
     # 🔁 REMOVER DUPLICADAS
-    # =====================================================
+    # =========================
     if "necesidad" in vagas.columns:
         vagas = vagas.drop_duplicates(subset=["necesidad"])
 
-    # =====================================================
+    # =========================
     # 🧠 TEXTO DA VAGA
-    # =====================================================
+    # =========================
     vagas["texto"] = (
 
         get_coluna(vagas, "conocimientos tecnicos")
@@ -395,9 +322,9 @@ if file_vagas and file_colab:
 
     st.divider()
 
-    # =====================================================
+    # =========================
     # 🔍 IDENTIFICAR COLUNAS
-    # =====================================================
+    # =========================
     coluna_nome = next((
         c for c in [
             "nome_colaborador",
@@ -420,9 +347,9 @@ if file_vagas and file_colab:
         st.error("❌ Coluna de nome não encontrada")
         st.stop()
 
-    # =====================================================
-    # 🔎 SELEÇÃO
-    # =====================================================
+    # =========================
+    # 🔍 BUSCA
+    # =========================
     st.subheader("🔎 Seleção de Colaborador")
 
     busca = st.text_input(
@@ -449,7 +376,6 @@ if file_vagas and file_colab:
             ]
 
         else:
-
             filtro = colab[filtro_nome]
 
     else:
@@ -464,9 +390,9 @@ if file_vagas and file_colab:
         colab[coluna_nome] == selecionado
     ].iloc[0]
 
-    # =====================================================
+    # =========================
     # 🧠 TEXTO COLABORADOR
-    # =====================================================
+    # =========================
     perfil_texto = limpar_texto(
 
         limpar_texto_modelo(
@@ -477,9 +403,9 @@ if file_vagas and file_colab:
 
     st.divider()
 
-    # =====================================================
-    # 🚀 BUSCAR MATCH
-    # =====================================================
+    # =========================
+    # 🚀 MATCH
+    # =========================
     if st.button("🚀 Buscar Vagas Compatíveis"):
 
         taxa_colab = tratar_taxa(
@@ -505,9 +431,9 @@ if file_vagas and file_colab:
             )
         ].copy()
 
-        # =====================================================
+        # =========================
         # ❌ SEM RESULTADO
-        # =====================================================
+        # =========================
         if len(vagas_filtradas) == 0:
 
             st.warning(
@@ -516,12 +442,11 @@ if file_vagas and file_colab:
 
             st.stop()
 
-        # =====================================================
+        # =========================
         # 🧠 IA MATCH
-        # =====================================================
+        # =========================
         vectorizer = TfidfVectorizer(
-            stop_words=None,
-            ngram_range=(1,2)
+            stop_words=None
         )
 
         corpus = vagas_filtradas["texto"].tolist()
@@ -535,9 +460,9 @@ if file_vagas and file_colab:
             vectors[:-1]
         )[0]
 
-        # =====================================================
+        # =========================
         # 🔥 BOOST
-        # =====================================================
+        # =========================
         final_scores = []
 
         for i, row in enumerate(vagas_filtradas["texto"]):
@@ -551,9 +476,9 @@ if file_vagas and file_colab:
 
         vagas_filtradas["match"] = final_scores
 
-        # =====================================================
+        # =========================
         # 📊 RESULTADO
-        # =====================================================
+        # =========================
         resultado = vagas_filtradas.sort_values(
             "match",
             ascending=False
@@ -563,34 +488,11 @@ if file_vagas and file_colab:
             resultado["match"] > 0.02
         ]
 
-        # =====================================================
-        # 📈 MÉTRICAS
-        # =====================================================
-        col1, col2, col3 = st.columns(3)
+        st.metric(
+            "Vagas encontradas",
+            len(resultado)
+        )
 
-        with col1:
-            st.metric(
-                "Vagas Encontradas",
-                len(resultado)
-            )
-
-        with col2:
-            st.metric(
-                "Maior Match",
-                f"{resultado['match'].max():.2f}"
-            )
-
-        with col3:
-            st.metric(
-                "Colaborador",
-                selecionado
-            )
-
-        st.divider()
-
-        # =====================================================
-        # 📋 COLUNAS
-        # =====================================================
         colunas_exibir = [
 
             "proyecto",
@@ -599,6 +501,7 @@ if file_vagas and file_colab:
             "rol reporting",
             "tasa máxima deseable",
             "match",
+
             "perfil profesional",
             "perfil solicitado resumido",
             "perfil solicitado detallado",
@@ -612,102 +515,88 @@ if file_vagas and file_colab:
             if c in resultado.columns
         ]
 
-        # =====================================================
+        # =========================
+        # 📊 TABELA PRINCIPAL
+        # =========================
+        st.dataframe(
+            resultado[colunas_exibir],
+            use_container_width=True,
+            height=700
+        )
+
+        st.divider()
+
+        # =========================
+        # 📂 DETALHAMENTO EXPANSÍVEL
+        # =========================
+        st.subheader("📋 Detalhamento das Vagas")
+
+        for idx, row in resultado.head(20).iterrows():
+
+            titulo = f"{row.get('proyecto', 'Projeto')} | Match: {round(row['match'] * 100, 2)}%"
+
+            with st.expander(titulo):
+
+                st.markdown(f"""
+                ### 📌 Informações da Vaga
+
+                **Projeto:** {row.get('proyecto', '-')}
+
+                **Solicitante:** {row.get('solicitante', '-')}
+
+                **Necessidade:** {row.get('necesidad', '-')}
+
+                **Rol:** {row.get('rol reporting', '-')}
+
+                **Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
+
+                **Score Match:** {round(row['match'] * 100, 2)}%
+                """)
+
+                st.markdown("### 🧠 Perfil Profissional")
+                st.write(row.get("perfil profesional", "-"))
+
+                st.markdown("### 📄 Perfil Resumido")
+                st.write(row.get("perfil solicitado resumido", "-"))
+
+                st.markdown("### 📑 Perfil Detalhado")
+                st.write(row.get("perfil solicitado detallado", "-"))
+
+                st.markdown("### ⚙️ Conhecimentos Funcionais")
+                st.write(row.get("conocimientos funcionales", "-"))
+
+                st.markdown("### 💻 Conhecimentos Técnicos")
+                st.write(row.get("conocimientos tecnicos", "-"))
+
+        # =========================
         # 📥 DOWNLOAD EXCEL
-        # =====================================================
-        excel = gerar_excel(
+        # =========================
+        excel_file = gerar_excel(
             resultado[colunas_exibir]
         )
 
         st.download_button(
             label="📥 Baixar Resultado em Excel",
-            data=excel,
+            data=excel_file,
             file_name=f"matching_{selecionado}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        st.divider()
-
-        # =====================================================
-        # 📊 RESULTADOS EXPANSÍVEIS
-        # =====================================================
-        st.subheader("📌 Vagas Compatíveis")
-
-        for index, row in resultado.head(20).iterrows():
-
-            titulo = f"""
-            {row.get('necesidad', 'Sem ID')} 
-            • Match: {round(row.get('match', 0), 2)}
-            • Rol: {row.get('rol reporting', '-')}
-            """
-
-            with st.expander(titulo):
-
-                col1, col2, col3 = st.columns(3)
-
-                with col1:
-                    st.markdown(f"""
-                    **Projeto:**  
-                    {row.get('proyecto', '-')}
-
-                    **Solicitante:**  
-                    {row.get('solicitante', '-')}
-                    """)
-
-                with col2:
-                    st.markdown(f"""
-                    **Rol:**  
-                    {row.get('rol reporting', '-')}
-
-                    **Taxa Máxima:**  
-                    {row.get('tasa máxima deseable', '-')}
-                    """)
-
-                with col3:
-                    st.markdown(f"""
-                    **Score Match:**  
-                    {round(row.get('match', 0), 4)}
-                    """)
-
-                st.divider()
-
-                if "perfil profesional" in row:
-                    st.markdown("### 👨‍💼 Perfil Profissional")
-                    st.write(row["perfil profesional"])
-
-                if "perfil solicitado resumido" in row:
-                    st.markdown("### 📋 Perfil Solicitado")
-                    st.write(row["perfil solicitado resumido"])
-
-                if "perfil solicitado detallado" in row:
-                    st.markdown("### 🧠 Descrição Completa")
-                    st.write(row["perfil solicitado detallado"])
-
-                if "conocimientos funcionales" in row:
-                    st.markdown("### ⚙️ Conhecimentos Funcionais")
-                    st.write(row["conocimientos funcionales"])
-
-                if "conocimientos tecnicos" in row:
-                    st.markdown("### 💻 Conhecimentos Técnicos")
-                    st.write(row["conocimientos tecnicos"])
-
-# =====================================================
+# =========================
 # 🧾 FOOTER
-# =====================================================
+# =========================
 st.markdown("""
-<hr>
-
-<div class="footer">
+<div class="footer-box">
 
     <div class="footer-title">
         Matching Inteligente de Vagas • v3.0
     </div>
 
-    Plataforma interna de apoio estratégico para análise de aderência entre colaboradores e oportunidades corporativas.
-
-    <br><br>
-
-    Desenvolvido por <b>Jonathan Marquezini</b> • UGR
+    <div class="footer-text">
+        Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas.
+        <br><br>
+        Desenvolvido por <b>Jonathan Marquezini</b> • UGR
+    </div>
 
 </div>
 """, unsafe_allow_html=True)
