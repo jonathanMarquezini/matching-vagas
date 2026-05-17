@@ -73,50 +73,59 @@ div[data-baseweb="select"] > div {
 [data-testid="stDataFrame"] {
     border-radius: 12px;
     overflow: hidden;
-}
-
-.stExpander {
-    margin-bottom: 0 !important;
-    margin-top: 0 !important;
-    border-bottom: none !important;
-    border-radius: 0 !important;
+    border: 1px solid #30363d;
 }
 
 div[data-testid="stExpander"] {
-    margin-bottom: 0 !important;
-    margin-top: 0 !important;
+    border-radius: 12px !important;
+    border: 1px solid #30363d !important;
+    margin-bottom: 10px !important;
+    overflow: hidden;
 }
 
-.footer-container {
-    background-color: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 16px;
-    padding: 30px;
-    margin-top: 50px;
+.header-company {
+    text-align: right;
+    font-size: 24px;
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+    margin-top: 12px;
+}
+
+.footer-wrapper {
+    margin-top: 60px;
     margin-bottom: 20px;
+}
+
+.footer-box {
+    background: linear-gradient(135deg, #161b22 0%, #1c2330 100%);
+    border: 1px solid #30363d;
+    border-radius: 18px;
+    padding: 35px 25px;
     text-align: center;
 }
 
 .footer-title {
     color: #f0f6fc;
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
-    margin-bottom: 15px;
+    margin-bottom: 18px;
 }
 
-.footer-text {
+.footer-description {
     color: #8b949e;
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.8;
+    margin-bottom: 18px;
 }
 
-.header-company {
-    text-align: right;
-    font-size: 28px;
-    font-weight: 700;
+.footer-author {
+    color: #c9d1d9;
+    font-size: 14px;
+}
+
+.footer-author b {
     color: white;
-    white-space: nowrap;
-    margin-top: 10px;
 }
 
 </style>
@@ -377,6 +386,19 @@ if file_vagas and file_colab:
         st.stop()
 
     # =========================
+    # 🔥 NOVA COLUNA PERFIL
+    # =========================
+    coluna_nome_perfil = next((
+        c for c in [
+            "nome_perfil",
+            "perfil",
+            "cargo",
+            "funcao"
+        ]
+        if c in colab.columns
+    ), None)
+
+    # =========================
     # 🔍 BUSCA
     # =========================
     st.subheader("🔎 Seleção de Colaborador")
@@ -422,12 +444,19 @@ if file_vagas and file_colab:
     # =========================
     # 🧠 TEXTO COLABORADOR
     # =========================
-    perfil_texto = limpar_texto(
+    descricao_colab = limpar_texto_modelo(
+        perfil_row.get("descricao", "")
+    )
 
-        limpar_texto_modelo(
-            perfil_row.get("descricao", "")
+    nome_perfil = ""
+
+    if coluna_nome_perfil:
+        nome_perfil = limpar_texto_modelo(
+            perfil_row.get(coluna_nome_perfil, "")
         )
 
+    perfil_texto = limpar_texto(
+        descricao_colab + " " + nome_perfil
     )
 
     st.divider()
@@ -498,8 +527,13 @@ if file_vagas and file_colab:
 
             score = scores[i]
 
+            # Boost skill descrição
             if tem_skill_direta(perfil_texto, row):
                 score += 0.15
+
+            # Boost nome perfil
+            if nome_perfil and nome_perfil.lower() in row:
+                score += 0.20
 
             final_scores.append(round(score, 4))
 
@@ -556,13 +590,16 @@ if file_vagas and file_colab:
         st.divider()
 
         # =========================
-        # 📂 DETALHAMENTO EXPANSÍVEL
+        # 📂 DETALHAMENTO
         # =========================
         st.subheader("📋 Detalhamento das Vagas")
 
         for idx, row in resultado.head(20).iterrows():
 
-            titulo = f"{row.get('proyecto', 'Projeto')} | Match: {round(row['match'] * 100, 2)}%"
+            titulo = (
+                f"{row.get('proyecto', 'Projeto')} "
+                f"| Match: {round(row['match'] * 100, 2)}%"
+            )
 
             with st.expander(titulo, expanded=False):
 
@@ -614,6 +651,26 @@ if file_vagas and file_colab:
 # =========================
 # 🧾 FOOTER
 # =========================
-footer_html = "<div class='footer-container'><div class='footer-title'>Matching Inteligente de Vagas • v3.0</div><div class='footer-text'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas.<br><br>Desenvolvido por <b>Jonathan Marquezini</b> • UGR</div></div>"
+st.markdown(
+    """
+    <div class="footer-wrapper">
+        <div class="footer-box">
 
-st.markdown(footer_html, unsafe_allow_html=True)
+            <div class="footer-title">
+                💼 Matching Inteligente de Vagas • v3.0
+            </div>
+
+            <div class="footer-description">
+                Plataforma corporativa de apoio estratégico para análise de aderência
+                entre colaboradores e oportunidades internas.
+            </div>
+
+            <div class="footer-author">
+                Desenvolvido por <b>Jonathan Marquezini</b> • UGR
+            </div>
+
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
