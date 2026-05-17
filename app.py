@@ -16,6 +16,10 @@ st.set_page_config(
 st.markdown("""
 <style>
 
+html, body, [class*="css"] {
+    font-family: "Segoe UI", sans-serif;
+}
+
 .main {
     background-color: #0e1117;
 }
@@ -44,19 +48,6 @@ h1, h2, h3 {
     color: white;
 }
 
-div[data-baseweb="select"] > div {
-    background-color: #1c1f26;
-}
-
-.stTextInput input {
-    background-color: #1c1f26;
-}
-
-[data-testid="stDataFrame"] {
-    border-radius: 12px;
-    overflow: hidden;
-}
-
 .stDownloadButton > button {
     background-color: #238636 !important;
     color: white !important;
@@ -71,27 +62,49 @@ div[data-baseweb="select"] > div {
     background-color: #2ea043 !important;
 }
 
-.footer-box {
+div[data-baseweb="select"] > div {
+    background-color: #1c1f26;
+}
+
+.stTextInput input {
+    background-color: #1c1f26;
+}
+
+[data-testid="stDataFrame"] {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.footer-container {
     background-color: #161b22;
     border: 1px solid #30363d;
     border-radius: 16px;
     padding: 30px;
-    text-align: center;
-    margin-top: 40px;
+    margin-top: 50px;
     margin-bottom: 20px;
+    text-align: center;
 }
 
 .footer-title {
     color: #f0f6fc;
     font-size: 22px;
     font-weight: 700;
-    margin-bottom: 12px;
+    margin-bottom: 15px;
 }
 
 .footer-text {
     color: #8b949e;
     font-size: 14px;
     line-height: 1.8;
+}
+
+.header-company {
+    text-align: right;
+    font-size: 28px;
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+    margin-top: 10px;
 }
 
 </style>
@@ -102,15 +115,22 @@ div[data-baseweb="select"] > div {
 # =========================
 st.title("💼 Matching Inteligente de Vagas")
 
-col1, col2 = st.columns([4, 1])
+col1, col2 = st.columns([5, 2])
 
 with col1:
     st.caption(
-        "Plataforma corporativa de apoio estratégico para identificação de aderência entre colaboradores e oportunidades internas."
+        "Plataforma corporativa para análise estratégica de aderência entre colaboradores e oportunidades internas."
     )
 
 with col2:
-    st.markdown("## 🏢 Indra Group | Minsait")
+    st.markdown(
+        """
+        <div class="header-company">
+            🏢 Indra Group | Minsait
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 st.divider()
 
@@ -271,9 +291,6 @@ with col2:
 # =========================
 if file_vagas and file_colab:
 
-    # =========================
-    # 📂 LEITURA
-    # =========================
     vagas = (
         pd.read_csv(file_vagas)
         if file_vagas.name.endswith(".csv")
@@ -587,30 +604,13 @@ if file_vagas and file_colab:
 # =========================
 st.markdown(
     """
-    <div style="
-        background-color:#161b22;
-        border:1px solid #30363d;
-        border-radius:16px;
-        padding:30px;
-        text-align:center;
-        margin-top:40px;
-        margin-bottom:20px;
-    ">
+    <div class="footer-container">
 
-        <div style="
-            color:#f0f6fc;
-            font-size:22px;
-            font-weight:700;
-            margin-bottom:15px;
-        ">
+        <div class="footer-title">
             Matching Inteligente de Vagas • v3.0
         </div>
 
-        <div style="
-            color:#8b949e;
-            font-size:14px;
-            line-height:1.8;
-        ">
+        <div class="footer-text">
             Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas.
             <br><br>
             Desenvolvido por <b>Jonathan Marquezini</b> • UGR
