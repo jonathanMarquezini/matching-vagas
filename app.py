@@ -268,10 +268,14 @@ def rol_compativel(rol_colab, rol_vaga):
     colab = parse_rol(rol_colab)
     vaga = parse_rol(rol_vaga)
 
+    # precisa ser mesmo tipo
     if colab["tipo"] != vaga["tipo"]:
         return False
 
-    return colab["nivel"] >= vaga["nivel"]
+    # AGORA:
+    # colaborador precisa ser EXATAMENTE
+    # do mesmo nível da vaga
+    return colab["nivel"] == vaga["nivel"]
 
 # =========================
 # 💰 TAXA
@@ -419,7 +423,7 @@ if file_vagas and file_colab:
         st.stop()
 
     # =========================
-    # 🔥 NOVA COLUNA PERFIL
+    # 🔥 COLUNA PERFIL
     # =========================
     coluna_nome_perfil = next((
         c for c in [
@@ -480,9 +484,11 @@ if file_vagas and file_colab:
     st.markdown("""
     <div class="cv-box">
         <h4 style="margin-top:0;">📄 Currículo do Colaborador (Opcional)</h4>
+
         <p style="color:#8b949e;">
             Você pode anexar o CV em PDF para melhorar a inteligência do matching.
         </p>
+
     </div>
     """, unsafe_allow_html=True)
 
@@ -511,6 +517,7 @@ if file_vagas and file_colab:
     nome_perfil = ""
 
     if coluna_nome_perfil:
+
         nome_perfil = limpar_texto_modelo(
             perfil_row.get(coluna_nome_perfil, "")
         )
@@ -591,22 +598,22 @@ if file_vagas and file_colab:
         # =========================
         final_scores = []
 
+        texto_cv_limpo = limpar_texto(texto_cv)
+
         for i, row in enumerate(vagas_filtradas["texto"]):
 
             score = scores[i]
 
-            # 🔥 BOOST descrição
+            # BOOST descrição
             if tem_skill_direta(perfil_texto, row):
                 score += 0.15
 
-            # 🔥 BOOST nome perfil
+            # BOOST nome perfil
             if nome_perfil and nome_perfil.lower() in row:
                 score += 0.20
 
-            # 🔥 BOOST CV
+            # BOOST CV
             if texto_cv:
-
-                texto_cv_limpo = limpar_texto(texto_cv)
 
                 if tem_skill_direta(texto_cv_limpo, row):
                     score += 0.25
@@ -730,16 +737,17 @@ if file_vagas and file_colab:
 st.markdown(
     """
     <div class='footer-wrapper'>
+
         <div class='footer-box'>
 
             <div class='footer-title'>
-                💼 Matching Inteligente de Vagas • v4.0
+                💼 Matching Inteligente de Vagas • v4.1
             </div>
 
             <div class='footer-description'>
                 Plataforma corporativa de apoio estratégico para análise de aderência
-                entre colaboradores e oportunidades internas utilizando IA, Skills,
-                Perfil Profissional e Currículo PDF.
+                entre colaboradores e oportunidades internas utilizando IA,
+                Skills, Perfil Profissional e Currículo PDF.
             </div>
 
             <div class='footer-author'>
@@ -747,6 +755,7 @@ st.markdown(
             </div>
 
         </div>
+
     </div>
     """,
     unsafe_allow_html=True
