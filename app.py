@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import re
+import pdfplumber
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 from io import BytesIO
@@ -128,6 +129,15 @@ div[data-testid="stExpander"] {
     color: white;
 }
 
+.cv-box {
+    background-color: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 15px;
+    margin-bottom: 20px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -184,6 +194,29 @@ def limpar_texto_modelo(texto):
         return ""
 
     return str(texto)
+
+# =========================
+# 🔧 EXTRAIR TEXTO PDF
+# =========================
+def extrair_texto_pdf(arquivo_pdf):
+
+    texto = ""
+
+    try:
+
+        with pdfplumber.open(arquivo_pdf) as pdf:
+
+            for pagina in pdf.pages:
+
+                conteudo = pagina.extract_text()
+
+                if conteudo:
+                    texto += " " + conteudo
+
+    except Exception as e:
+        st.warning(f"Erro ao ler PDF: {e}")
+
+    return texto
 
 # =========================
 # 🔧 COLUNA SEGURA
@@ -442,6 +475,33 @@ if file_vagas and file_colab:
     ].iloc[0]
 
     # =========================
+    # 📄 UPLOAD CV
+    # =========================
+    st.markdown("""
+    <div class="cv-box">
+        <h4 style="margin-top:0;">📄 Currículo do Colaborador (Opcional)</h4>
+        <p style="color:#8b949e;">
+            Você pode anexar o CV em PDF para melhorar a inteligência do matching.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    cv_pdf = st.file_uploader(
+        "Anexar CV em PDF",
+        type=["pdf"]
+    )
+
+    texto_cv = ""
+
+    if cv_pdf:
+
+        with st.spinner("Extraindo informações do CV..."):
+
+            texto_cv = extrair_texto_pdf(cv_pdf)
+
+        st.success("✅ CV carregado com sucesso")
+
+    # =========================
     # 🧠 TEXTO COLABORADOR
     # =========================
     descricao_colab = limpar_texto_modelo(
@@ -455,8 +515,16 @@ if file_vagas and file_colab:
             perfil_row.get(coluna_nome_perfil, "")
         )
 
+    perfil_completo = (
+        descricao_colab
+        + " "
+        + nome_perfil
+        + " "
+        + texto_cv
+    )
+
     perfil_texto = limpar_texto(
-        descricao_colab + " " + nome_perfil
+        perfil_completo
     )
 
     st.divider()
@@ -527,13 +595,21 @@ if file_vagas and file_colab:
 
             score = scores[i]
 
-            # Boost skill descrição
+            # 🔥 BOOST descrição
             if tem_skill_direta(perfil_texto, row):
                 score += 0.15
 
-            # Boost nome perfil
+            # 🔥 BOOST nome perfil
             if nome_perfil and nome_perfil.lower() in row:
                 score += 0.20
+
+            # 🔥 BOOST CV
+            if texto_cv:
+
+                texto_cv_limpo = limpar_texto(texto_cv)
+
+                if tem_skill_direta(texto_cv_limpo, row):
+                    score += 0.25
 
             final_scores.append(round(score, 4))
 
@@ -651,4 +727,27 @@ if file_vagas and file_colab:
 # =========================
 # 🧾 FOOTER
 # =========================
-st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>💼 Matching Inteligente de Vagas • v3.0</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> • UGR</div></div></div>", unsafe_allow_html=True)
+st.markdown(
+    """
+    <div class='footer-wrapper'>
+        <div class='footer-box'>
+
+            <div class='footer-title'>
+                💼 Matching Inteligente de Vagas • v4.0
+            </div>
+
+            <div class='footer-description'>
+                Plataforma corporativa de apoio estratégico para análise de aderência
+                entre colaboradores e oportunidades internas utilizando IA, Skills,
+                Perfil Profissional e Currículo PDF.
+            </div>
+
+            <div class='footer-author'>
+                Desenvolvido por <b>Jonathan Marquezini</b> • UGR
+            </div>
+
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
