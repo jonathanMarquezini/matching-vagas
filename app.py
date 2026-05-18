@@ -93,6 +93,15 @@ div[data-testid="stExpander"] {
     margin-top: 12px;
 }
 
+.cv-box {
+    background-color: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 10px;
+    margin-bottom: 15px;
+}
+
 .footer-wrapper {
     margin-top: 60px;
     margin-bottom: 20px;
@@ -129,15 +138,6 @@ div[data-testid="stExpander"] {
     color: white;
 }
 
-.cv-box {
-    background-color: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 14px;
-    padding: 20px;
-    margin-top: 15px;
-    margin-bottom: 20px;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -154,14 +154,7 @@ with col1:
     )
 
 with col2:
-    st.markdown(
-        """
-        <div class="header-company">
-            🏢 Indra Group | Minsait
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown("<div class='header-company'>🏢 Indra Group | Minsait</div>", unsafe_allow_html=True)
 
 st.divider()
 
@@ -174,13 +167,10 @@ def limpar_texto(texto):
         return ""
 
     texto = str(texto).lower()
-
     texto = re.sub(r"\n", " ", texto)
     texto = re.sub(r"\r", " ", texto)
     texto = re.sub(r"\t", " ", texto)
-
     texto = re.sub(r"[^\w\s]", " ", texto)
-
     texto = re.sub(r"\s+", " ", texto)
 
     return texto.strip()
@@ -237,8 +227,10 @@ def parse_rol(rol):
         return {"tipo": "", "nivel": 0}
 
     rol = str(rol).strip().lower()
-
     partes = rol.split()
+
+    if not partes:
+        return {"tipo": "", "nivel": 0}
 
     tipo = partes[0]
 
@@ -268,13 +260,9 @@ def rol_compativel(rol_colab, rol_vaga):
     colab = parse_rol(rol_colab)
     vaga = parse_rol(rol_vaga)
 
-    # precisa ser mesmo tipo
     if colab["tipo"] != vaga["tipo"]:
         return False
 
-    # AGORA:
-    # colaborador precisa ser EXATAMENTE
-    # do mesmo nível da vaga
     return colab["nivel"] == vaga["nivel"]
 
 # =========================
@@ -286,9 +274,7 @@ def tratar_taxa(valor):
         return 0
 
     valor = str(valor)
-
     valor = valor.replace(",", ".")
-
     valor = re.sub(r"[^0-9.]", "", valor)
 
     try:
@@ -326,7 +312,7 @@ def gerar_excel(df):
     return output
 
 # =========================
-# 📂 UPLOAD
+# 📂 UPLOAD BASES
 # =========================
 st.subheader("📂 Upload das Bases")
 
@@ -374,21 +360,15 @@ if file_vagas and file_colab:
     # 🧠 TEXTO DA VAGA
     # =========================
     vagas["texto"] = (
-
         get_coluna(vagas, "conocimientos tecnicos")
         + " " +
-
         get_coluna(vagas, "perfil solicitado resumido")
         + " " +
-
         get_coluna(vagas, "perfil solicitado detallado")
         + " " +
-
         get_coluna(vagas, "conocimientos funcionales")
         + " " +
-
         get_coluna(vagas, "perfil profesional")
-
     )
 
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
@@ -422,9 +402,6 @@ if file_vagas and file_colab:
         st.error("❌ Coluna de nome não encontrada")
         st.stop()
 
-    # =========================
-    # 🔥 COLUNA PERFIL
-    # =========================
     coluna_nome_perfil = next((
         c for c in [
             "nome_perfil",
@@ -436,13 +413,11 @@ if file_vagas and file_colab:
     ), None)
 
     # =========================
-    # 🔍 BUSCA
+    # 🔍 BUSCA COLABORADOR
     # =========================
     st.subheader("🔎 Seleção de Colaborador")
 
-    busca = st.text_input(
-        "Digite nome ou matrícula"
-    )
+    busca = st.text_input("Digite nome ou matrícula")
 
     if busca:
 
@@ -459,9 +434,7 @@ if file_vagas and file_colab:
                 na=False
             )
 
-            filtro = colab[
-                filtro_nome | filtro_matricula
-            ]
+            filtro = colab[filtro_nome | filtro_matricula]
 
         else:
             filtro = colab[filtro_nome]
@@ -479,33 +452,28 @@ if file_vagas and file_colab:
     ].iloc[0]
 
     # =========================
-    # 📄 UPLOAD CV
+    # 📄 UPLOAD CV — vinculado
+    # ao colaborador selecionado
     # =========================
-    st.markdown("""
-    <div class="cv-box">
-        <h4 style="margin-top:0;">📄 Currículo do Colaborador (Opcional)</h4>
-
-        <p style="color:#8b949e;">
-            Você pode anexar o CV em PDF para melhorar a inteligência do matching.
-        </p>
-
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='cv-box'><b>📄 Currículo de " + str(selecionado) + " (Opcional)</b><br><span style='color:#8b949e;font-size:13px;'>Anexe o CV em PDF para enriquecer o matching com skills, experiências e formações.</span></div>", unsafe_allow_html=True)
 
     cv_pdf = st.file_uploader(
         "Anexar CV em PDF",
-        type=["pdf"]
+        type=["pdf"],
+        key=f"cv_{selecionado}"
     )
 
     texto_cv = ""
 
     if cv_pdf:
 
-        with st.spinner("Extraindo informações do CV..."):
-
+        with st.spinner("📖 Extraindo informações do CV..."):
             texto_cv = extrair_texto_pdf(cv_pdf)
 
-        st.success("✅ CV carregado com sucesso")
+        if texto_cv.strip():
+            st.success(f"✅ CV de {selecionado} carregado — {len(texto_cv.split())} palavras extraídas")
+        else:
+            st.warning("⚠️ Não foi possível extrair texto do PDF enviado.")
 
     # =========================
     # 🧠 TEXTO COLABORADOR
@@ -517,22 +485,19 @@ if file_vagas and file_colab:
     nome_perfil = ""
 
     if coluna_nome_perfil:
-
         nome_perfil = limpar_texto_modelo(
             perfil_row.get(coluna_nome_perfil, "")
         )
 
-    perfil_completo = (
-        descricao_colab
-        + " "
-        + nome_perfil
-        + " "
-        + texto_cv
+    perfil_texto = limpar_texto(
+        descricao_colab + " " + nome_perfil + " " + texto_cv
     )
 
-    perfil_texto = limpar_texto(
-        perfil_completo
-    )
+    # =========================
+    # ⚠️ AVISO PERFIL VAZIO
+    # =========================
+    if not perfil_texto.strip():
+        st.warning("⚠️ Este colaborador não possui descrição de perfil nem CV anexado. O match pode ter baixa precisão.")
 
     st.divider()
 
@@ -541,119 +506,105 @@ if file_vagas and file_colab:
     # =========================
     if st.button("🚀 Buscar Vagas Compatíveis"):
 
-        taxa_colab = tratar_taxa(
-            perfil_row.get("taxa")
-        )
+        taxa_colab = tratar_taxa(perfil_row.get("taxa"))
 
-        vagas_filtradas = vagas[
-            vagas.apply(
-                lambda row:
+        with st.spinner("🔍 Calculando compatibilidade das vagas..."):
 
-                rol_compativel(
-                    perfil_row.get("roll"),
-                    row.get("rol reporting")
+            vagas_filtradas = vagas[
+                vagas.apply(
+                    lambda row:
+                    rol_compativel(
+                        perfil_row.get("roll"),
+                        row.get("rol reporting")
+                    )
+                    and
+                    taxa_colab <= tratar_taxa(
+                        row.get("tasa máxima deseable")
+                    ),
+                    axis=1
                 )
+            ].copy()
 
-                and
+            # =========================
+            # ❌ SEM RESULTADO
+            # =========================
+            if len(vagas_filtradas) == 0:
+                st.warning("Nenhuma vaga compatível encontrada")
+                st.stop()
 
-                taxa_colab <= tratar_taxa(
-                    row.get("tasa máxima deseable")
-                ),
+            # =========================
+            # 🧠 IA MATCH — TF-IDF
+            # =========================
+            vectorizer = TfidfVectorizer(stop_words=None)
 
-                axis=1
-            )
-        ].copy()
+            corpus = vagas_filtradas["texto"].tolist()
+            corpus.append(perfil_texto)
 
-        # =========================
-        # ❌ SEM RESULTADO
-        # =========================
-        if len(vagas_filtradas) == 0:
+            vectors = vectorizer.fit_transform(corpus)
 
-            st.warning(
-                "Nenhuma vaga compatível encontrada"
-            )
+            scores = cosine_similarity(
+                vectors[-1],
+                vectors[:-1]
+            )[0]
 
-            st.stop()
+            # =========================
+            # 🔥 BOOST
+            # =========================
+            texto_cv_limpo = limpar_texto(texto_cv)
+            final_scores = []
 
-        # =========================
-        # 🧠 IA MATCH
-        # =========================
-        vectorizer = TfidfVectorizer(
-            stop_words=None
-        )
+            for i, row in enumerate(vagas_filtradas["texto"]):
 
-        corpus = vagas_filtradas["texto"].tolist()
+                score = scores[i]
 
-        corpus.append(perfil_texto)
+                # Boost descrição base
+                if tem_skill_direta(perfil_texto, row):
+                    score += 0.10
 
-        vectors = vectorizer.fit_transform(corpus)
+                # Boost nome/cargo do perfil
+                if nome_perfil and nome_perfil.lower() in row:
+                    score += 0.15
 
-        scores = cosine_similarity(
-            vectors[-1],
-            vectors[:-1]
-        )[0]
+                # Boost CV — peso maior pois é mais rico
+                if texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row):
+                    score += 0.20
 
-        # =========================
-        # 🔥 BOOST
-        # =========================
-        final_scores = []
+                final_scores.append(round(score, 4))
 
-        texto_cv_limpo = limpar_texto(texto_cv)
-
-        for i, row in enumerate(vagas_filtradas["texto"]):
-
-            score = scores[i]
-
-            # BOOST descrição
-            if tem_skill_direta(perfil_texto, row):
-                score += 0.15
-
-            # BOOST nome perfil
-            if nome_perfil and nome_perfil.lower() in row:
-                score += 0.20
-
-            # BOOST CV
-            if texto_cv:
-
-                if tem_skill_direta(texto_cv_limpo, row):
-                    score += 0.25
-
-            final_scores.append(round(score, 4))
-
-        vagas_filtradas["match"] = final_scores
+            vagas_filtradas["match"] = final_scores
 
         # =========================
         # 📊 RESULTADO
         # =========================
-        resultado = vagas_filtradas.sort_values(
-            "match",
-            ascending=False
-        )
+        resultado = vagas_filtradas.sort_values("match", ascending=False)
+        resultado = resultado[resultado["match"] > 0.02]
 
-        resultado = resultado[
-            resultado["match"] > 0.02
-        ]
+        score_medio = round(resultado["match"].mean() * 100, 1) if len(resultado) > 0 else 0
 
-        st.metric(
-            "Vagas encontradas",
-            len(resultado)
-        )
+        col_m1, col_m2, col_m3 = st.columns(3)
+
+        with col_m1:
+            st.metric("Vagas encontradas", len(resultado))
+
+        with col_m2:
+            st.metric("Score médio", f"{score_medio}%")
+
+        with col_m3:
+            cv_status = "✅ Sim" if texto_cv.strip() else "❌ Não"
+            st.metric("CV utilizado no match", cv_status)
 
         colunas_exibir = [
-
             "proyecto",
             "solicitante",
             "necesidad",
             "rol reporting",
             "tasa máxima deseable",
             "match",
-
             "perfil profesional",
             "perfil solicitado resumido",
             "perfil solicitado detallado",
             "conocimientos funcionales",
             "conocimientos tecnicos"
-
         ]
 
         colunas_exibir = [
@@ -681,26 +632,27 @@ if file_vagas and file_colab:
 
             titulo = (
                 f"{row.get('proyecto', 'Projeto')} "
+                f"| {row.get('rol reporting', '')} "
                 f"| Match: {round(row['match'] * 100, 2)}%"
             )
 
             with st.expander(titulo, expanded=False):
 
                 st.markdown(f"""
-                ### 📌 Informações da Vaga
+### 📌 Informações da Vaga
 
-                **Projeto:** {row.get('proyecto', '-')}
+**Projeto:** {row.get('proyecto', '-')}
 
-                **Solicitante:** {row.get('solicitante', '-')}
+**Solicitante:** {row.get('solicitante', '-')}
 
-                **Necessidade:** {row.get('necesidad', '-')}
+**Necessidade:** {row.get('necesidad', '-')}
 
-                **Rol:** {row.get('rol reporting', '-')}
+**Rol:** {row.get('rol reporting', '-')}
 
-                **Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
+**Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
 
-                **Score Match:** {round(row['match'] * 100, 2)}%
-                """)
+**Score Match:** {round(row['match'] * 100, 2)}%
+""")
 
                 st.markdown("### 🧠 Perfil Profissional")
                 st.write(row.get("perfil profesional", "-"))
@@ -720,9 +672,7 @@ if file_vagas and file_colab:
         # =========================
         # 📥 DOWNLOAD EXCEL
         # =========================
-        excel_file = gerar_excel(
-            resultado[colunas_exibir]
-        )
+        excel_file = gerar_excel(resultado[colunas_exibir])
 
         st.download_button(
             label="📥 Baixar Resultado em Excel",
@@ -734,29 +684,4 @@ if file_vagas and file_colab:
 # =========================
 # 🧾 FOOTER
 # =========================
-st.markdown(
-    """
-    <div class='footer-wrapper'>
-
-        <div class='footer-box'>
-
-            <div class='footer-title'>
-                💼 Matching Inteligente de Vagas • v4.1
-            </div>
-
-            <div class='footer-description'>
-                Plataforma corporativa de apoio estratégico para análise de aderência
-                entre colaboradores e oportunidades internas utilizando IA,
-                Skills, Perfil Profissional e Currículo PDF.
-            </div>
-
-            <div class='footer-author'>
-                Desenvolvido por <b>Jonathan Marquezini</b> • UGR
-            </div>
-
-        </div>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>💼 Matching Inteligente de Vagas • v4.1</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> • UGR</div></div></div>", unsafe_allow_html=True)
