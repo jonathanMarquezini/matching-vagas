@@ -142,75 +142,6 @@ div[data-testid="stExpander"] {
 """, unsafe_allow_html=True)
 
 # =========================
-# 🛑 STOPWORDS PT + ES
-# =========================
-STOPWORDS = set([
-    # Português
-    "de", "da", "do", "das", "dos", "em", "na", "no", "nas", "nos",
-    "para", "por", "com", "sem", "sob", "sobre", "entre", "até",
-    "que", "se", "ou", "e", "a", "o", "as", "os", "um", "uma",
-    "uns", "umas", "ao", "aos", "à", "às", "me", "te", "se", "nos",
-    "vos", "lhe", "lhes", "meu", "minha", "seu", "sua", "seus", "suas",
-    "este", "esta", "estes", "estas", "esse", "essa", "esses", "essas",
-    "aquele", "aquela", "aqueles", "aquelas", "isso", "isto", "aquilo",
-    "ele", "ela", "eles", "elas", "eu", "tu", "você", "nós", "vocês",
-    "foi", "ser", "estar", "tem", "ter", "são", "há", "vai", "pode",
-    "deve", "mais", "mas", "bem", "já", "não", "sim", "também",
-    "quando", "onde", "como", "pelo", "pela", "pelos", "pelas",
-    "num", "numa", "nuns", "numas", "desse", "dessa", "deste", "desta",
-    "nesse", "nessa", "neste", "nesta", "ano", "anos", "mês", "meses",
-    # Espanhol
-    "el", "la", "los", "las", "un", "una", "unos", "unas",
-    "en", "con", "por", "para", "sin", "sobre", "entre", "hasta",
-    "que", "se", "si", "no", "ni", "y", "o", "pero", "sino",
-    "del", "al", "lo", "le", "les", "me", "te", "nos", "vos",
-    "su", "sus", "mi", "mis", "tu", "tus", "este", "esta", "estos",
-    "estas", "ese", "esa", "esos", "esas", "aquel", "aquella",
-    "él", "ella", "ellos", "ellas", "yo", "tú", "usted", "nosotros",
-    "es", "son", "fue", "ser", "estar", "tiene", "tener", "hay",
-    "más", "también", "cuando", "donde", "como", "muy", "bien",
-    "año", "años", "mes", "meses", "nivel", "tipo", "conocimiento",
-])
-
-# =========================
-# 🔧 SEÇÕES RELEVANTES DO CV
-# =========================
-SECOES_RELEVANTES = [
-    "conhecimento",
-    "conocimiento",
-    "tecnológico",
-    "tecnologico",
-    "funcional",
-    "experiência",
-    "experiencia",
-    "perfil",
-    "especialização",
-    "especializacion",
-    "habilidade",
-    "habilidad",
-    "formação",
-    "formacion",
-    "angular",
-    "javascript",
-    "python",
-    "java",
-    "react",
-    "typescript",
-    "desenvolvimento",
-    "desarrollo",
-    "software",
-    "sistema",
-    "banco",
-    "base",
-    "dados",
-    "datos",
-    "cloud",
-    "devops",
-    "agile",
-    "scrum",
-]
-
-# =========================
 # 🏢 HEADER
 # =========================
 st.title("💼 Matching Inteligente de Vagas")
@@ -245,20 +176,6 @@ def limpar_texto(texto):
     return texto.strip()
 
 # =========================
-# 🔧 REMOVER STOPWORDS
-# =========================
-def remover_stopwords(texto):
-
-    palavras = texto.split()
-
-    filtradas = [
-        p for p in palavras
-        if p not in STOPWORDS and len(p) > 2
-    ]
-
-    return " ".join(filtradas)
-
-# =========================
 # 🔧 EVITAR NaN
 # =========================
 def limpar_texto_modelo(texto):
@@ -270,12 +187,10 @@ def limpar_texto_modelo(texto):
 
 # =========================
 # 🔧 EXTRAIR TEXTO PDF
-# com foco nas seções relevantes
 # =========================
 def extrair_texto_pdf(arquivo_pdf):
 
-    texto_total = ""
-    texto_relevante = ""
+    texto = ""
 
     try:
 
@@ -286,27 +201,12 @@ def extrair_texto_pdf(arquivo_pdf):
                 conteudo = pagina.extract_text()
 
                 if conteudo:
-                    texto_total += " " + conteudo
+                    texto += " " + conteudo
 
     except Exception as e:
         st.warning(f"Erro ao ler PDF: {e}")
-        return ""
 
-    # Filtra linhas com termos relevantes
-    linhas = texto_total.split("\n")
-
-    for linha in linhas:
-
-        linha_lower = linha.lower()
-
-        if any(termo in linha_lower for termo in SECOES_RELEVANTES):
-            texto_relevante += " " + linha
-
-    # Se extraiu pouco conteúdo relevante, usa o texto completo
-    if len(texto_relevante.split()) < 30:
-        return texto_total
-
-    return texto_relevante
+    return texto
 
 # =========================
 # 🔧 COLUNA SEGURA
@@ -384,20 +284,18 @@ def tratar_taxa(valor):
         return 0
 
 # =========================
-# 🧠 BOOST SKILL — conta
-# quantas skills batem
+# 🧠 BOOST SKILL
 # =========================
-def contar_skills_diretas(perfil, vaga_texto):
+def tem_skill_direta(perfil, vaga_texto):
 
-    palavras = set(perfil.split())
-    count = 0
+    palavras = perfil.split()
 
     for skill in palavras:
 
         if len(skill) > 4 and skill in vaga_texto:
-            count += 1
+            return True
 
-    return count
+    return False
 
 # =========================
 # 📥 GERAR EXCEL
@@ -460,9 +358,8 @@ if file_vagas and file_colab:
 
     # =========================
     # 🧠 TEXTO DA VAGA
-    # com remoção de stopwords
     # =========================
-    vagas["texto_raw"] = (
+    vagas["texto"] = (
         get_coluna(vagas, "conocimientos tecnicos")
         + " " +
         get_coluna(vagas, "perfil solicitado resumido")
@@ -474,9 +371,7 @@ if file_vagas and file_colab:
         get_coluna(vagas, "perfil profesional")
     )
 
-    vagas["texto"] = vagas["texto_raw"].apply(
-        lambda t: remover_stopwords(limpar_texto(t))
-    )
+    vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
     st.success("✅ Bases carregadas com sucesso")
 
@@ -578,18 +473,16 @@ if file_vagas and file_colab:
 
     if cv_pdf:
 
-        with st.spinner("📖 Extraindo informações relevantes do CV..."):
+        with st.spinner("📖 Extraindo informações do CV..."):
             texto_cv = extrair_texto_pdf(cv_pdf)
 
         if texto_cv.strip():
-            palavras_cv = len(limpar_texto(texto_cv).split())
-            st.success(f"✅ CV de {selecionado} carregado — {palavras_cv} termos relevantes extraídos")
+            st.success(f"✅ CV de {selecionado} carregado — {len(texto_cv.split())} palavras extraídas")
         else:
             st.warning("⚠️ Não foi possível extrair texto do PDF enviado.")
 
     # =========================
     # 🧠 TEXTO COLABORADOR
-    # com remoção de stopwords
     # =========================
     descricao_colab = limpar_texto_modelo(perfil_row.get("descricao", ""))
 
@@ -600,10 +493,8 @@ if file_vagas and file_colab:
             perfil_row.get(coluna_nome_perfil, "")
         )
 
-    texto_cv_limpo = remover_stopwords(limpar_texto(texto_cv))
-
-    perfil_texto = remover_stopwords(
-        limpar_texto(descricao_colab + " " + nome_perfil + " " + texto_cv)
+    perfil_texto = limpar_texto(
+        descricao_colab + " " + nome_perfil + " " + texto_cv
     )
 
     # =========================
@@ -647,104 +538,61 @@ if file_vagas and file_colab:
 
             # =========================
             # 🧠 IA MATCH — TF-IDF
-            # com stopwords removidas
             # =========================
-            vectorizer = TfidfVectorizer(
-                stop_words=None,     # já removemos manualmente
-                ngram_range=(1, 2),  # bigrams capturam "angular js", "spring boot"
-                min_df=1,
-                sublinear_tf=True    # suaviza termos muito frequentes
-            )
+            vectorizer = TfidfVectorizer(stop_words=None)
 
             corpus = vagas_filtradas["texto"].tolist()
             corpus.append(perfil_texto)
 
             vectors = vectorizer.fit_transform(corpus)
 
-            scores_tfidf = cosine_similarity(
+            scores = cosine_similarity(
                 vectors[-1],
                 vectors[:-1]
             )[0]
 
             # =========================
-            # 🔥 BOOST MULTIPLICATIVO
-            # não soma diretamente ao
-            # score — multiplica por um
-            # fator proporcional às skills
+            # 🔥 BOOST
             # =========================
+            texto_cv_limpo = limpar_texto(texto_cv)
             final_scores = []
 
-            for i, vaga_texto in enumerate(vagas_filtradas["texto"]):
+            for i, row in enumerate(vagas_filtradas["texto"]):
 
-                score_base = scores_tfidf[i]
+                score = scores[i]
 
-                # Conta skills que batem entre perfil e vaga
-                skills_desc = contar_skills_diretas(
-                    remover_stopwords(limpar_texto(descricao_colab + " " + nome_perfil)),
-                    vaga_texto
-                )
+                if tem_skill_direta(perfil_texto, row):
+                    score += 0.10
 
-                skills_cv = contar_skills_diretas(
-                    texto_cv_limpo,
-                    vaga_texto
-                ) if texto_cv_limpo else 0
+                if nome_perfil and nome_perfil.lower() in row:
+                    score += 0.15
 
-                # Fator multiplicativo baseado em skills encontradas
-                # Cada skill adiciona 3% ao score, cap em 30%
-                fator_skills_desc = min(1 + (skills_desc * 0.03), 1.30)
-                fator_skills_cv   = min(1 + (skills_cv   * 0.04), 1.40)
+                if texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row):
+                    score += 0.20
 
-                # Boost adicional se cargo/perfil bate diretamente na vaga
-                fator_perfil = 1.10 if (
-                    nome_perfil and
-                    len(nome_perfil) > 3 and
-                    nome_perfil.lower() in vaga_texto
-                ) else 1.0
+                final_scores.append(round(score, 4))
 
-                score_final = score_base * fator_skills_desc * fator_skills_cv * fator_perfil
-
-                # Normaliza para não ultrapassar 1.0
-                score_final = min(round(score_final, 4), 1.0)
-
-                final_scores.append(score_final)
-
-            vagas_filtradas["match_raw"] = final_scores
-
-            # Formata como percentual para exibição
-            vagas_filtradas["match"] = vagas_filtradas["match_raw"].apply(
-                lambda x: f"{round(x * 100, 1)}%"
-            )
+            vagas_filtradas["match"] = final_scores
 
         # =========================
         # 📊 RESULTADO
         # =========================
-        resultado = vagas_filtradas.sort_values("match_raw", ascending=False)
+        resultado = vagas_filtradas.sort_values("match", ascending=False)
+        resultado = resultado[resultado["match"] > 0.02]
 
-        resultado = resultado[
-            resultado["match_raw"] >= 0.02
-        ]
+        score_medio = round(resultado["match"].mean() * 100, 1) if len(resultado) > 0 else 0
 
-        if len(resultado) == 0:
-            st.warning("Nenhuma vaga compatível encontrada.")
-            st.stop()
-
-        score_medio = round(resultado["match_raw"].mean() * 100, 1)
-        score_top   = round(resultado["match_raw"].iloc[0] * 100, 1)
-
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1, col_m2, col_m3 = st.columns(3)
 
         with col_m1:
             st.metric("Vagas encontradas", len(resultado))
 
         with col_m2:
-            st.metric("Melhor match", f"{score_top}%")
-
-        with col_m3:
             st.metric("Score médio", f"{score_medio}%")
 
-        with col_m4:
+        with col_m3:
             cv_status = "✅ Sim" if texto_cv.strip() else "❌ Não"
-            st.metric("CV no match", cv_status)
+            st.metric("CV utilizado no match", cv_status)
 
         colunas_exibir = [
             "proyecto",
@@ -789,7 +637,7 @@ if file_vagas and file_colab:
             titulo = (
                 f"{row.get('proyecto', 'Projeto')} "
                 f"{rol_str}"
-                f"| Match: {row.get('match', '-')}"
+                f"| Match: {round(row['match'] * 100, 2)}%"
             )
 
             with st.expander(titulo, expanded=False):
@@ -807,7 +655,7 @@ if file_vagas and file_colab:
 
 **Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
 
-**Score Match:** {row.get('match', '-')}
+**Score Match:** {round(row['match'] * 100, 2)}%
 """)
 
                 st.markdown("### 🧠 Perfil Profissional")
@@ -823,7 +671,7 @@ if file_vagas and file_colab:
                 st.write(row.get("conocimientos funcionales", "-"))
 
                 st.markdown("### 💻 Conhecimentos Técnicos")
-                st.write(row.get("conocimientos tecnicos", "-"))
+                st.write(row.get("conocimentos tecnicos", "-"))
 
         # =========================
         # 📥 DOWNLOAD EXCEL
@@ -840,4 +688,4 @@ if file_vagas and file_colab:
 # =========================
 # 🧾 FOOTER
 # =========================
-st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>💼 Matching Inteligente de Vagas • v5.0</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> • UGR</div></div></div>", unsafe_allow_html=True)
+st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>💼 Matching Inteligente de Vagas • v4.1</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> • UGR</div></div></div>", unsafe_allow_html=True)
