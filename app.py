@@ -615,34 +615,6 @@ if file_vagas and file_colab:
     st.divider()
 
     # =========================
-    # ⚙️ CONFIGURAÇÃO DO MATCH
-    # =========================
-    st.subheader("⚙️ Configuração do Match")
-
-    col_cfg1, col_cfg2 = st.columns(2)
-
-    with col_cfg1:
-        score_minimo = st.slider(
-            "Score mínimo para exibir vagas (%)",
-            min_value=1,
-            max_value=30,
-            value=5,
-            step=1,
-            help="Vagas com score abaixo desse valor serão ocultadas"
-        )
-
-    with col_cfg2:
-        top_vagas = st.slider(
-            "Máximo de vagas no detalhamento",
-            min_value=5,
-            max_value=50,
-            value=20,
-            step=5
-        )
-
-    st.divider()
-
-    # =========================
     # 🚀 MATCH
     # =========================
     if st.button("🚀 Buscar Vagas Compatíveis"):
@@ -749,11 +721,11 @@ if file_vagas and file_colab:
         resultado = vagas_filtradas.sort_values("match_raw", ascending=False)
 
         resultado = resultado[
-            resultado["match_raw"] >= (score_minimo / 100)
+            resultado["match_raw"] >= 0.02
         ]
 
         if len(resultado) == 0:
-            st.warning(f"Nenhuma vaga atingiu o score mínimo de {score_minimo}%. Tente reduzir o filtro.")
+            st.warning("Nenhuma vaga compatível encontrada.")
             st.stop()
 
         score_medio = round(resultado["match_raw"].mean() * 100, 1)
@@ -809,7 +781,7 @@ if file_vagas and file_colab:
         # =========================
         st.subheader("📋 Detalhamento das Vagas")
 
-        for idx, row in resultado.head(top_vagas).iterrows():
+        for idx, row in resultado.head(20).iterrows():
 
             rol = row.get("rol reporting", "")
             rol_str = f"| {rol} " if rol and str(rol).strip() else ""
