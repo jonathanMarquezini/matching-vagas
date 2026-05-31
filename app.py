@@ -833,7 +833,8 @@ if file_vagas and file_colab:
 
                 st.markdown(
                     "<p style='color:#8b949e; font-size:13px; margin-top:-10px; margin-bottom:20px;'>"
-                    "Veja o que contribuiu para o score e o que faltou para chegar a 100%."
+                    "Cada critério abaixo mostra quanto contribuiu para o score final. "
+                    "Critérios em vermelho ou laranja indicam o que faltou para chegar a 100%."
                     "</p>",
                     unsafe_allow_html=True
                 )
@@ -849,24 +850,36 @@ if file_vagas and file_colab:
                     )
 
                 def _linha(label, pct_exibir, pct_barra, cor, colab_val, vaga_val, ok, faltou=""):
-                    icone = "✅" if ok else ("⚠️" if pct_exibir > 0 else "❌")
+                    icone    = "✅" if ok else ("⚠️" if pct_exibir > 0 else "❌")
+                    status   = "Compatível" if ok else ("Parcialmente compatível" if pct_exibir > 0 else "Não compatível")
+                    cor_status = "#238636" if ok else ("#f0883e" if pct_exibir > 0 else "#f85149")
                     detalhe_colab = f"<span style='color:#c9d1d9;'>Colaborador: <b>{colab_val}</b></span>"
-                    detalhe_vaga  = f"<span style='color:#8b949e;'>Vaga: <b>{vaga_val}</b></span>"
-                    gap = (
-                        f"<span style='color:#f0883e;font-size:12px;'> — Faltou: {faltou}</span>"
+                    detalhe_vaga  = f"<span style='color:#8b949e;'>Vaga exige: <b>{vaga_val}</b></span>"
+                    contribuicao  = (
+                        f"<span style='color:#8b949e;font-size:11px;'>"
+                        f"Contribuição para o score: <b style='color:#e6edf3;'>{pct_exibir:.1f}%</b></span>"
+                    )
+                    alerta = (
+                        f"<div style='margin-top:6px;background:#f0883e18;border-left:3px solid #f0883e;"
+                        f"border-radius:4px;padding:6px 10px;font-size:12px;color:#f0883e;'>"
+                        f"⚠️ {faltou}</div>"
                         if not ok and faltou else ""
                     )
                     return (
-                        f"<div style='margin-bottom:18px;'>"
+                        f"<div style='margin-bottom:20px;'>"
                         f"<div style='display:flex;justify-content:space-between;"
                         f"align-items:center;margin-bottom:6px;'>"
                         f"<span style='color:#e6edf3;font-weight:600;font-size:14px;'>{icone} {label}</span>"
-                        f"<span style='color:#e6edf3;font-weight:700;font-size:14px;'>{pct_exibir:.1f}%</span>"
+                        f"<span style='background:{cor_status}22;color:{cor_status};font-size:12px;"
+                        f"font-weight:600;padding:2px 10px;border-radius:20px;'>{status}</span>"
                         f"</div>"
                         f"{_barra(pct_barra, cor)}"
-                        f"<div style='display:flex;gap:20px;margin-top:6px;font-size:12px;'>"
-                        f"{detalhe_colab} &nbsp;|&nbsp; {detalhe_vaga}{gap}"
+                        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                        f"margin-top:6px;font-size:12px;flex-wrap:wrap;gap:6px;'>"
+                        f"<div style='display:flex;gap:16px;'>{detalhe_colab} &nbsp;|&nbsp; {detalhe_vaga}</div>"
+                        f"{contribuicao}"
                         f"</div>"
+                        f"{alerta}"
                         f"</div>"
                     )
 
@@ -901,9 +914,9 @@ if file_vagas and file_colab:
 
                 # ── CRITÉRIO 1 — ADERÊNCIA GERAL DO PERFIL ───────────
                 tfidf_ok     = p_tfidf >= (score_pct * 0.4)
-                faltou_tfidf = "" if tfidf_ok else "O perfil do colaborador tem pouco em comum com o que a vaga pede"
+                faltou_tfidf = "" if tfidf_ok else "O perfil do colaborador tem pouco em comum com o que essa vaga pede. Considere buscar vagas mais próximas da área de atuação dele."
                 breakdown_html = _linha(
-                    "Aderência geral do perfil",
+                    "O perfil combina com a vaga?",
                     p_tfidf, p_tfidf,
                     "#1f6feb" if tfidf_ok else ("#f0883e" if p_tfidf > 0 else "#f85149"),
                     "Perfil, cargo e CV do colaborador",
@@ -913,29 +926,36 @@ if file_vagas and file_colab:
 
                 # ── CRITÉRIO 2 — ROL ────────────────────────────────────
                 faltou_rol = "" if rol_ok else (
-                    f"A vaga pede '{rol_vaga_val or '—'}' e o colaborador é '{rol_colab_val or '—'}'"
+                    f"A vaga exige o cargo '{rol_vaga_val or '—'}', mas o colaborador é '{rol_colab_val or '—'}'. Os cargos precisam ser iguais para pontuar."
                 )
                 breakdown_html += _linha(
-                    "Cargo (Rol)",
+                    "O cargo é o mesmo que a vaga pede?",
                     p_perfil if rol_ok else 0,
                     p_perfil if rol_ok else 0,
                     "#238636" if rol_ok else "#f85149",
-                    rol_colab_val or "—",
-                    rol_vaga_val or "—",
+                    f"Colaborador: {rol_colab_val or '—'}",
+                    f"Vaga: {rol_vaga_val or '—'}",
                     rol_ok, faltou_rol
                 )
 
                 # ── CRITÉRIO 3 — TAXA ────────────────────────────────────
-                faltou_taxa = "" if taxa_ok else (
-                    f"A taxa do colaborador ({taxa_c}) está acima do limite da vaga ({taxa_v})"
-                )
+                if not taxa_c and not taxa_v:
+                    taxa_nota = "Taxa não informada — critério não aplicado"
+                    faltou_taxa = ""
+                elif taxa_ok:
+                    taxa_nota = f"A taxa do colaborador ({taxa_c}) está dentro do limite da vaga ({taxa_v})"
+                    faltou_taxa = ""
+                else:
+                    taxa_nota = ""
+                    faltou_taxa = f"A taxa do colaborador ({taxa_c}) está acima do limite aceito pela vaga ({taxa_v}). Isso pode inviabilizar a alocação."
+
                 breakdown_html += _linha(
-                    "Taxa / Remuneração",
+                    "A remuneração está dentro do limite da vaga?",
                     p_nome if taxa_ok else 0,
                     p_nome if taxa_ok else 0,
                     "#238636" if taxa_ok else "#f0883e",
-                    f"{taxa_c}" if taxa_c else "—",
-                    f"Máximo: {taxa_v}" if taxa_v else "—",
+                    f"Taxa atual: {taxa_c}" if taxa_c else "Não informada",
+                    f"Limite máximo: {taxa_v}" if taxa_v else "Não informado",
                     taxa_ok, faltou_taxa
                 )
 
@@ -943,35 +963,41 @@ if file_vagas and file_colab:
                 cv_ok    = cv_presente and p_cv > 0
                 faltou_cv = (
                     "" if cv_ok
-                    else ("O CV não foi anexado. Envie o PDF para melhorar o resultado"
+                    else ("O CV ainda não foi enviado. Anexe o PDF do colaborador para melhorar o resultado do matching."
                           if not cv_presente
-                          else "O CV foi enviado, mas tem pouco em comum com os requisitos da vaga")
+                          else "O CV foi enviado, mas tem poucas palavras em comum com os requisitos dessa vaga.")
                 )
-                cv_label = "CV enviado e considerado" if cv_presente else "CV não enviado"
+                cv_label = "CV enviado e considerado na análise" if cv_presente else "CV não enviado"
                 breakdown_html += _linha(
-                    "CV / Currículo",
+                    "O CV foi considerado na análise?",
                     p_cv, p_cv,
                     "#238636" if cv_ok else ("#f0883e" if cv_presente else "#f85149"),
                     cv_label,
-                    "Requisitos da vaga",
+                    "Requisitos técnicos da vaga",
                     cv_ok, faltou_cv
                 )
 
                 # ── Score total — igual ao da tabela ─────────────────────
-                cor_total = "#238636" if score_pct >= 70 else ("#f0883e" if score_pct >= 40 else "#f85149")
+                cor_total  = "#238636" if score_pct >= 70 else ("#f0883e" if score_pct >= 40 else "#f85149")
+                nota_score = (
+                    "Ótima aderência — colaborador muito compatível com a vaga." if score_pct >= 70
+                    else "Aderência moderada — vale avaliar os critérios em laranja/vermelho." if score_pct >= 40
+                    else "Baixa aderência — o colaborador tem pouco em comum com essa vaga."
+                )
 
                 st.markdown(
                     f"<div style='background:#161b22;border:1px solid #30363d;border-radius:12px;"
                     f"padding:20px 24px;margin-bottom:20px;'>"
                     f"{breakdown_html}"
-                    f"<div style='border-top:1px solid #30363d;padding-top:14px;margin-top:4px;"
-                    f"display:flex;justify-content:space-between;align-items:center;'>"
-                    f"<span style='color:#e6edf3;font-size:15px;font-weight:700;'>🏁 Score final do matching</span>"
-                    f"<span style='color:{cor_total};font-size:20px;font-weight:800;'>{score_pct}%</span>"
+                    f"<div style='border-top:1px solid #30363d;padding-top:16px;margin-top:4px;'>"
+                    f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>"
+                    f"<div>"
+                    f"<div style='color:#e6edf3;font-size:15px;font-weight:700;'>🏁 Resultado geral</div>"
+                    f"<div style='color:#8b949e;font-size:12px;margin-top:2px;'>{nota_score}</div>"
                     f"</div>"
-                    f"<div style='margin-top:10px;'>{_barra(score_pct, cor_total)}</div>"
-                    f"<div style='margin-top:8px;color:#8b949e;font-size:11px;'>"
-                    f"💡 O score considera o perfil completo do colaborador, o cargo, a taxa e o CV anexado."
+                    f"<span style='color:{cor_total};font-size:26px;font-weight:800;'>{score_pct}%</span>"
+                    f"</div>"
+                    f"{_barra(score_pct, cor_total)}"
                     f"</div>"
                     f"</div>",
                     unsafe_allow_html=True
@@ -992,7 +1018,7 @@ if file_vagas and file_colab:
                 st.write(row.get("conocimientos funcionales", "-"))
 
                 st.markdown("### 💻 Conhecimentos Técnicos")
-                st.write(row.get("conocimentos tecnicos", "-"))
+                st.write(row.get("conocimientos tecnicos", "-"))
 
         # =========================
         # 📥 DOWNLOAD EXCEL
