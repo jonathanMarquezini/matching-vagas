@@ -784,7 +784,7 @@ if file_vagas and file_colab:
         # =========================
         # 📂 DETALHAMENTO
         # =========================
-        for idx, row in resultado.head(20).iterrows():
+        for idx, row in resultado.head(10).iterrows():
 
             rol = row.get("rol reporting", "")
             rol_str = f"| {rol} " if rol and str(rol).strip() else ""
