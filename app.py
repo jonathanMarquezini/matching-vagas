@@ -829,11 +829,11 @@ if file_vagas and file_colab:
                 # Usa os valores REAIS do score
                 # calculado pelo TF-IDF + boost
                 # =========================
-                st.markdown("### 🔍 Transparência do Match — Como chegamos nesse resultado?")
+                st.markdown("### 🔍 Por que esse resultado?")
 
                 st.markdown(
                     "<p style='color:#8b949e; font-size:13px; margin-top:-10px; margin-bottom:20px;'>"
-                    "Veja abaixo o que contribuiu para o score final e o que faltou para atingir 100%."
+                    "Veja o que contribuiu para o score e o que faltou para chegar a 100%."
                     "</p>",
                     unsafe_allow_html=True
                 )
@@ -899,39 +899,35 @@ if file_vagas and file_colab:
 
                 cv_presente = texto_cv_limpo.strip() != ""
 
-                # ── CRITÉRIO 1 — TF-IDF (similaridade semântica geral) ───
-                # Este critério representa o quanto o perfil completo do
-                # colaborador (descrição + cargo + CV) se alinha ao texto
-                # completo da vaga via similaridade de cosseno TF-IDF.
-                # É o núcleo do matching e reflete perfil, conhecimentos
-                # técnicos e funcionais de forma unificada.
+                # ── CRITÉRIO 1 — ADERÊNCIA GERAL DO PERFIL ───────────
                 tfidf_ok     = p_tfidf >= (score_pct * 0.4)
-                faltou_tfidf = "" if tfidf_ok else "Baixa similaridade semântica entre o perfil do colaborador e o texto da vaga"
+                faltou_tfidf = "" if tfidf_ok else "O perfil do colaborador tem pouco em comum com o que a vaga pede"
                 breakdown_html = _linha(
-                    "Similaridade de Perfil (TF-IDF)",
+                    "Aderência geral do perfil",
                     p_tfidf, p_tfidf,
                     "#1f6feb" if tfidf_ok else ("#f0883e" if p_tfidf > 0 else "#f85149"),
-                    "Perfil + cargo + CV do colaborador",
-                    "Texto completo da vaga",
+                    "Perfil, cargo e CV do colaborador",
+                    "Requisitos da vaga",
                     tfidf_ok, faltou_tfidf
                 )
 
                 # ── CRITÉRIO 2 — ROL ────────────────────────────────────
                 faltou_rol = "" if rol_ok else (
-                    f"Rol da vaga é '{rol_vaga_val or '—'}', colaborador tem '{rol_colab_val or '—'}'"
+                    f"A vaga pede '{rol_vaga_val or '—'}' e o colaborador é '{rol_colab_val or '—'}'"
                 )
                 breakdown_html += _linha(
-                    "Rol (tipo + nível)",
+                    "Cargo (Rol)",
                     p_perfil if rol_ok else 0,
                     p_perfil if rol_ok else 0,
                     "#238636" if rol_ok else "#f85149",
-                    rol_colab_val or "—", rol_vaga_val or "—",
+                    rol_colab_val or "—",
+                    rol_vaga_val or "—",
                     rol_ok, faltou_rol
                 )
 
                 # ── CRITÉRIO 3 — TAXA ────────────────────────────────────
                 faltou_taxa = "" if taxa_ok else (
-                    f"Taxa do colaborador ({taxa_c}) excede o máximo da vaga ({taxa_v})"
+                    f"A taxa do colaborador ({taxa_c}) está acima do limite da vaga ({taxa_v})"
                 )
                 breakdown_html += _linha(
                     "Taxa / Remuneração",
@@ -939,28 +935,29 @@ if file_vagas and file_colab:
                     p_nome if taxa_ok else 0,
                     "#238636" if taxa_ok else "#f0883e",
                     f"{taxa_c}" if taxa_c else "—",
-                    f"{taxa_v}" if taxa_v else "—",
+                    f"Máximo: {taxa_v}" if taxa_v else "—",
                     taxa_ok, faltou_taxa
                 )
 
                 # ── CRITÉRIO 4 — CV ──────────────────────────────────────
-                cv_ok     = cv_presente and p_cv > 0
+                cv_ok    = cv_presente and p_cv > 0
                 faltou_cv = (
                     "" if cv_ok
-                    else ("CV não anexado — anexe o PDF para pontuar neste critério"
+                    else ("O CV não foi anexado. Envie o PDF para melhorar o resultado"
                           if not cv_presente
-                          else "CV com baixa sobreposição com os requisitos da vaga")
+                          else "O CV foi enviado, mas tem pouco em comum com os requisitos da vaga")
                 )
-                cv_label  = "CV anexado e utilizado" if cv_presente else "CV não anexado"
+                cv_label = "CV enviado e considerado" if cv_presente else "CV não enviado"
                 breakdown_html += _linha(
                     "CV / Currículo",
                     p_cv, p_cv,
                     "#238636" if cv_ok else ("#f0883e" if cv_presente else "#f85149"),
-                    cv_label, "Texto completo da vaga",
+                    cv_label,
+                    "Requisitos da vaga",
                     cv_ok, faltou_cv
                 )
 
-                # ── Score total — igual ao da tabela ────────────────────
+                # ── Score total — igual ao da tabela ─────────────────────
                 cor_total = "#238636" if score_pct >= 70 else ("#f0883e" if score_pct >= 40 else "#f85149")
 
                 st.markdown(
@@ -969,13 +966,12 @@ if file_vagas and file_colab:
                     f"{breakdown_html}"
                     f"<div style='border-top:1px solid #30363d;padding-top:14px;margin-top:4px;"
                     f"display:flex;justify-content:space-between;align-items:center;'>"
-                    f"<span style='color:#e6edf3;font-size:15px;font-weight:700;'>🏁 Score total do breakdown</span>"
+                    f"<span style='color:#e6edf3;font-size:15px;font-weight:700;'>🏁 Score final do matching</span>"
                     f"<span style='color:{cor_total};font-size:20px;font-weight:800;'>{score_pct}%</span>"
                     f"</div>"
                     f"<div style='margin-top:10px;'>{_barra(score_pct, cor_total)}</div>"
                     f"<div style='margin-top:8px;color:#8b949e;font-size:11px;'>"
-                    f"💡 O score é calculado por similaridade semântica (TF-IDF) + boosts por"
-                    f" skills diretas no perfil (+10%), nome do cargo (+15%) e skills no CV (+20%)."
+                    f"💡 O score considera o perfil completo do colaborador, o cargo, a taxa e o CV anexado."
                     f"</div>"
                     f"</div>",
                     unsafe_allow_html=True
