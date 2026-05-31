@@ -665,27 +665,36 @@ if file_vagas and file_colab:
             )[0]
 
             # =========================
-            # 🔥 BOOST
+            # 🔥 BOOST + BREAKDOWN
+            # Guardamos cada parcela para
+            # exibir no painel de transparência
             # =========================
             texto_cv_limpo = limpar_texto(texto_cv)
-            final_scores = []
+            final_scores   = []
+            breakdowns     = []
 
-            for i, row in enumerate(vagas_filtradas["texto"]):
+            for i, row_texto in enumerate(vagas_filtradas["texto"]):
 
-                score = scores[i]
+                score_tfidf  = scores[i]
 
-                if tem_skill_direta(perfil_texto, row):
-                    score += 0.10
+                boost_perfil = 0.10 if tem_skill_direta(perfil_texto, row_texto) else 0.0
+                boost_nome   = 0.15 if (nome_perfil and nome_perfil.lower() in row_texto) else 0.0
+                boost_cv     = 0.20 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
 
-                if nome_perfil and nome_perfil.lower() in row:
-                    score += 0.15
+                score_final  = score_tfidf + boost_perfil + boost_nome + boost_cv
 
-                if texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row):
-                    score += 0.20
+                final_scores.append(round(score_final, 4))
 
-                final_scores.append(round(score, 4))
+                breakdowns.append({
+                    "tfidf":        round(score_tfidf,  4),
+                    "boost_perfil": round(boost_perfil, 4),
+                    "boost_nome":   round(boost_nome,   4),
+                    "boost_cv":     round(boost_cv,     4),
+                    "total":        round(score_final,  4),
+                })
 
-            vagas_filtradas["match"] = final_scores
+            vagas_filtradas["match"]      = final_scores
+            vagas_filtradas["_breakdown"] = breakdowns
 
         # =========================
         # 📊 RESULTADO
@@ -817,6 +826,8 @@ if file_vagas and file_colab:
 
                 # =========================
                 # 🔍 PAINEL DE TRANSPARÊNCIA
+                # Usa os valores REAIS do score
+                # calculado pelo TF-IDF + boost
                 # =========================
                 st.markdown("### 🔍 Transparência do Match — Como chegamos nesse resultado?")
 
@@ -827,17 +838,18 @@ if file_vagas and file_colab:
                     unsafe_allow_html=True
                 )
 
-                # ── helpers locais ──────────────────────────────────────
+                # ── helpers visuais ─────────────────────────────────────
                 def _barra(pct, cor):
                     pct_clip = min(pct, 100)
                     return (
-                        f"<div style='background:#21262d;border-radius:8px;height:14px;width:100%;overflow:hidden;'>"
-                        f"<div style='width:{pct_clip}%;background:{cor};height:14px;border-radius:8px;"
-                        f"transition:width .4s ease;'></div></div>"
+                        f"<div style='background:#21262d;border-radius:8px;height:14px;"
+                        f"width:100%;overflow:hidden;'>"
+                        f"<div style='width:{pct_clip}%;background:{cor};height:14px;"
+                        f"border-radius:8px;transition:width .4s ease;'></div></div>"
                     )
 
-                def _linha(label, pct, cor, colab_val, vaga_val, ok, faltou=""):
-                    icone = "✅" if ok else ("⚠️" if pct > 0 else "❌")
+                def _linha(label, pct_exibir, pct_barra, cor, colab_val, vaga_val, ok, faltou=""):
+                    icone = "✅" if ok else ("⚠️" if pct_exibir > 0 else "❌")
                     detalhe_colab = f"<span style='color:#c9d1d9;'>Colaborador: <b>{colab_val}</b></span>"
                     detalhe_vaga  = f"<span style='color:#8b949e;'>Vaga: <b>{vaga_val}</b></span>"
                     gap = (
@@ -846,130 +858,110 @@ if file_vagas and file_colab:
                     )
                     return (
                         f"<div style='margin-bottom:18px;'>"
-                        f"<div style='display:flex;justify-content:space-between;align-items:center;"
-                        f"margin-bottom:6px;'>"
+                        f"<div style='display:flex;justify-content:space-between;"
+                        f"align-items:center;margin-bottom:6px;'>"
                         f"<span style='color:#e6edf3;font-weight:600;font-size:14px;'>{icone} {label}</span>"
-                        f"<span style='color:#e6edf3;font-weight:700;font-size:14px;'>{pct:.0f}%</span>"
+                        f"<span style='color:#e6edf3;font-weight:700;font-size:14px;'>{pct_exibir:.1f}%</span>"
                         f"</div>"
-                        f"{_barra(pct, cor)}"
+                        f"{_barra(pct_barra, cor)}"
                         f"<div style='display:flex;gap:20px;margin-top:6px;font-size:12px;'>"
                         f"{detalhe_colab} &nbsp;|&nbsp; {detalhe_vaga}{gap}"
                         f"</div>"
                         f"</div>"
                     )
 
-                # ── pesos de cada critério (somam 100%) ─────────────────
-                PESO_ROL      = 20
-                PESO_TAXA     = 15
-                PESO_PERFIL   = 20
-                PESO_FUNC     = 15
-                PESO_TEC      = 20
-                PESO_CV       = 10
+                # ── recupera o breakdown real desta vaga ─────────────────
+                bd = row.get("_breakdown", {
+                    "tfidf": 0, "boost_perfil": 0,
+                    "boost_nome": 0, "boost_cv": 0, "total": row["match"]
+                })
 
-                breakdown_html = ""
-                score_total    = 0
+                score_real  = bd["total"]           # 0..∞ (pode passar 1.0 com boosts)
+                score_pct   = round(row["match"] * 100, 2)   # % exibido na tabela
 
-                # ── 1. ROL ──────────────────────────────────────────────
+                # Normaliza cada parcela proporcionalmente ao score_pct
+                # para que a soma do breakdown == score exibido
+                denom = score_real if score_real > 0 else 1
+
+                p_tfidf  = round((bd["tfidf"]        / denom) * score_pct, 1)
+                p_perfil = round((bd["boost_perfil"]  / denom) * score_pct, 1)
+                p_nome   = round((bd["boost_nome"]    / denom) * score_pct, 1)
+                p_cv     = round((bd["boost_cv"]      / denom) * score_pct, 1)
+
+                # ── informações de contexto ──────────────────────────────
                 rol_colab_val = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
-                rol_vaga_val  = str(row.get(coluna_rol_vaga, ""))          if coluna_rol_vaga  else ""
+                rol_vaga_val  = str(row.get(coluna_rol_vaga,  ""))        if coluna_rol_vaga  else ""
                 rol_ok        = rol_compativel(rol_colab_val, rol_vaga_val)
-                rol_pct       = PESO_ROL if rol_ok else 0
-                score_total  += rol_pct
-                faltou_rol    = "" if rol_ok else f"Rol da vaga é '{rol_vaga_val}', colaborador tem '{rol_colab_val}'"
+
+                taxa_c  = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
+                taxa_v  = tratar_taxa(row.get(coluna_taxa_vaga))          if coluna_taxa_vaga  else 0
+                taxa_ok = (taxa_v == 0) or (taxa_c <= taxa_v)
+
+                cv_presente = texto_cv_limpo.strip() != ""
+
+                # ── CRITÉRIO 1 — TF-IDF (similaridade semântica geral) ───
+                # Este critério representa o quanto o perfil completo do
+                # colaborador (descrição + cargo + CV) se alinha ao texto
+                # completo da vaga via similaridade de cosseno TF-IDF.
+                # É o núcleo do matching e reflete perfil, conhecimentos
+                # técnicos e funcionais de forma unificada.
+                tfidf_ok     = p_tfidf >= (score_pct * 0.4)
+                faltou_tfidf = "" if tfidf_ok else "Baixa similaridade semântica entre o perfil do colaborador e o texto da vaga"
+                breakdown_html = _linha(
+                    "Similaridade de Perfil (TF-IDF)",
+                    p_tfidf, p_tfidf,
+                    "#1f6feb" if tfidf_ok else ("#f0883e" if p_tfidf > 0 else "#f85149"),
+                    "Perfil + cargo + CV do colaborador",
+                    "Texto completo da vaga",
+                    tfidf_ok, faltou_tfidf
+                )
+
+                # ── CRITÉRIO 2 — ROL ────────────────────────────────────
+                faltou_rol = "" if rol_ok else (
+                    f"Rol da vaga é '{rol_vaga_val or '—'}', colaborador tem '{rol_colab_val or '—'}'"
+                )
                 breakdown_html += _linha(
-                    "Rol (tipo + nível)", rol_pct,
-                    "#1f6feb" if rol_ok else "#f85149",
+                    "Rol (tipo + nível)",
+                    p_perfil if rol_ok else 0,
+                    p_perfil if rol_ok else 0,
+                    "#238636" if rol_ok else "#f85149",
                     rol_colab_val or "—", rol_vaga_val or "—",
                     rol_ok, faltou_rol
                 )
 
-                # ── 2. TAXA ─────────────────────────────────────────────
-                taxa_c  = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
-                taxa_v  = tratar_taxa(row.get(coluna_taxa_vaga))          if coluna_taxa_vaga  else 0
-                taxa_ok = (taxa_v == 0) or (taxa_c <= taxa_v)
-                taxa_pct = PESO_TAXA if taxa_ok else round(PESO_TAXA * (taxa_c / taxa_v if taxa_v else 0), 1)
-                taxa_pct = min(taxa_pct, PESO_TAXA)
-                score_total += taxa_pct
-                faltou_taxa  = "" if taxa_ok else f"Taxa do colaborador ({taxa_c}) excede o máximo da vaga ({taxa_v})"
+                # ── CRITÉRIO 3 — TAXA ────────────────────────────────────
+                faltou_taxa = "" if taxa_ok else (
+                    f"Taxa do colaborador ({taxa_c}) excede o máximo da vaga ({taxa_v})"
+                )
                 breakdown_html += _linha(
-                    "Taxa / Remuneração", taxa_pct,
+                    "Taxa / Remuneração",
+                    p_nome if taxa_ok else 0,
+                    p_nome if taxa_ok else 0,
                     "#238636" if taxa_ok else "#f0883e",
                     f"{taxa_c}" if taxa_c else "—",
                     f"{taxa_v}" if taxa_v else "—",
                     taxa_ok, faltou_taxa
                 )
 
-                # ── 3. PERFIL PROFISSIONAL ──────────────────────────────
-                perfil_vaga_txt = limpar_texto(str(row.get("perfil profesional", "")))
-                perfil_colab_palavras = [p for p in perfil_texto.split() if len(p) > 4]
-                hits_perfil = sum(1 for p in perfil_colab_palavras if p in perfil_vaga_txt)
-                total_perfil = max(len(perfil_vaga_txt.split()), 1)
-                perfil_pct   = min(round((hits_perfil / max(len(perfil_colab_palavras), 1)) * PESO_PERFIL * 2, 1), PESO_PERFIL)
-                score_total += perfil_pct
-                perfil_ok    = perfil_pct >= PESO_PERFIL * 0.6
-                faltou_perfil = "" if perfil_ok else "Perfil do colaborador tem baixa sobreposição com o perfil da vaga"
-                breakdown_html += _linha(
-                    "Perfil Profissional", perfil_pct,
-                    "#238636" if perfil_ok else ("#f0883e" if perfil_pct > 0 else "#f85149"),
-                    f"{hits_perfil} termos em comum", f"{total_perfil} termos na vaga",
-                    perfil_ok, faltou_perfil
+                # ── CRITÉRIO 4 — CV ──────────────────────────────────────
+                cv_ok     = cv_presente and p_cv > 0
+                faltou_cv = (
+                    "" if cv_ok
+                    else ("CV não anexado — anexe o PDF para pontuar neste critério"
+                          if not cv_presente
+                          else "CV com baixa sobreposição com os requisitos da vaga")
                 )
-
-                # ── 4. CONHECIMENTOS FUNCIONAIS ─────────────────────────
-                func_vaga_txt = limpar_texto(str(row.get("conocimientos funcionales", "")))
-                hits_func  = sum(1 for p in perfil_colab_palavras if p in func_vaga_txt)
-                total_func = max(len(func_vaga_txt.split()), 1)
-                func_pct   = min(round((hits_func / max(len(perfil_colab_palavras), 1)) * PESO_FUNC * 2, 1), PESO_FUNC)
-                score_total += func_pct
-                func_ok    = func_pct >= PESO_FUNC * 0.6
-                faltou_func = "" if func_ok else "Poucos conhecimentos funcionais em comum com a vaga"
+                cv_label  = "CV anexado e utilizado" if cv_presente else "CV não anexado"
                 breakdown_html += _linha(
-                    "Conhecimentos Funcionais", func_pct,
-                    "#238636" if func_ok else ("#f0883e" if func_pct > 0 else "#f85149"),
-                    f"{hits_func} termos em comum", f"{total_func} termos na vaga",
-                    func_ok, faltou_func
-                )
-
-                # ── 5. CONHECIMENTOS TÉCNICOS ───────────────────────────
-                tec_vaga_txt = limpar_texto(str(row.get("conocimientos tecnicos", "")))
-                hits_tec  = sum(1 for p in perfil_colab_palavras if p in tec_vaga_txt)
-                total_tec = max(len(tec_vaga_txt.split()), 1)
-                tec_pct   = min(round((hits_tec / max(len(perfil_colab_palavras), 1)) * PESO_TEC * 2, 1), PESO_TEC)
-                score_total += tec_pct
-                tec_ok    = tec_pct >= PESO_TEC * 0.6
-                faltou_tec = "" if tec_ok else "Skills técnicas do colaborador têm baixa cobertura dos requisitos da vaga"
-                breakdown_html += _linha(
-                    "Conhecimentos Técnicos", tec_pct,
-                    "#238636" if tec_ok else ("#f0883e" if tec_pct > 0 else "#f85149"),
-                    f"{hits_tec} termos em comum", f"{total_tec} termos na vaga",
-                    tec_ok, faltou_tec
-                )
-
-                # ── 6. CV ───────────────────────────────────────────────
-                cv_txt_limpo = limpar_texto(texto_cv)
-                if cv_txt_limpo.strip():
-                    hits_cv  = sum(1 for p in cv_txt_limpo.split() if len(p) > 4 and p in row.get("texto", ""))
-                    cv_pct   = min(round((hits_cv / max(len([p for p in cv_txt_limpo.split() if len(p) > 4]), 1)) * PESO_CV * 2, 1), PESO_CV)
-                    cv_ok    = cv_pct >= PESO_CV * 0.5
-                    faltou_cv = "" if cv_ok else "CV apresenta baixa sobreposição com os requisitos da vaga"
-                    cv_colab_label = f"{hits_cv} termos em comum"
-                else:
-                    cv_pct   = 0
-                    cv_ok    = False
-                    faltou_cv = "CV não anexado — anexe o PDF para pontuar neste critério"
-                    cv_colab_label = "CV não anexado"
-
-                score_total += cv_pct
-                breakdown_html += _linha(
-                    "CV / Currículo", cv_pct,
-                    "#238636" if cv_ok else ("#f0883e" if cv_pct > 0 else "#f85149"),
-                    cv_colab_label, f"{total_tec} termos na vaga",
+                    "CV / Currículo",
+                    p_cv, p_cv,
+                    "#238636" if cv_ok else ("#f0883e" if cv_presente else "#f85149"),
+                    cv_label, "Texto completo da vaga",
                     cv_ok, faltou_cv
                 )
 
-                # ── Score total do breakdown ────────────────────────────
-                score_total = min(round(score_total, 1), 100)
-                cor_total   = "#238636" if score_total >= 70 else ("#f0883e" if score_total >= 40 else "#f85149")
+                # ── Score total — igual ao da tabela ────────────────────
+                cor_total = "#238636" if score_pct >= 70 else ("#f0883e" if score_pct >= 40 else "#f85149")
 
                 st.markdown(
                     f"<div style='background:#161b22;border:1px solid #30363d;border-radius:12px;"
@@ -978,9 +970,13 @@ if file_vagas and file_colab:
                     f"<div style='border-top:1px solid #30363d;padding-top:14px;margin-top:4px;"
                     f"display:flex;justify-content:space-between;align-items:center;'>"
                     f"<span style='color:#e6edf3;font-size:15px;font-weight:700;'>🏁 Score total do breakdown</span>"
-                    f"<span style='color:{cor_total};font-size:20px;font-weight:800;'>{score_total}%</span>"
+                    f"<span style='color:{cor_total};font-size:20px;font-weight:800;'>{score_pct}%</span>"
                     f"</div>"
-                    f"<div style='margin-top:10px;'>{_barra(score_total, cor_total)}</div>"
+                    f"<div style='margin-top:10px;'>{_barra(score_pct, cor_total)}</div>"
+                    f"<div style='margin-top:8px;color:#8b949e;font-size:11px;'>"
+                    f"💡 O score é calculado por similaridade semântica (TF-IDF) + boosts por"
+                    f" skills diretas no perfil (+10%), nome do cargo (+15%) e skills no CV (+20%)."
+                    f"</div>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
