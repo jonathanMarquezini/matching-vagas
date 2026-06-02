@@ -1018,7 +1018,21 @@ if file_vagas and file_colab:
                     cargo_ok, faltou_rol
                 )
 
-                # ── CRITÉRIO 3 — TAXA ────────────────────────────────────
+                # ── CRITÉRIO 3 — ROL ────────────────────────────────────
+                faltou_rol_nivel = "" if rol_ok else (
+                    f"A vaga exige o nível '{rol_vaga_val or '—'}', mas o colaborador é '{rol_colab_val or '—'}'. Os níveis precisam ser iguais para pontuar."
+                )
+                breakdown_html += _linha(
+                    "O nível (Rol) é o mesmo que a vaga pede?",
+                    p_skills if rol_ok else 0,
+                    p_skills if rol_ok else 0,
+                    "#238636" if rol_ok else "#f85149",
+                    f"{rol_colab_val or '—'}",
+                    f"{rol_vaga_val or '—'}",
+                    rol_ok, faltou_rol_nivel
+                )
+
+                # ── CRITÉRIO 5 — TAXA ────────────────────────────────────
                 if not taxa_c and not taxa_v:
                     faltou_taxa  = ""
                 elif taxa_ok and taxa_v > 0:
@@ -1038,7 +1052,7 @@ if file_vagas and file_colab:
                     taxa_ok, faltou_taxa
                 )
 
-                # ── CRITÉRIO 4 — CV ──────────────────────────────────────
+                # ── CRITÉRIO 6 — CV ──────────────────────────────────────
                 cv_ok    = cv_presente and p_cv > 0
                 faltou_cv = (
                     "" if cv_ok
