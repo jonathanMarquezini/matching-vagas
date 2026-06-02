@@ -712,17 +712,21 @@ if file_vagas and file_colab:
 
                 boost_perfil = 0.10 if tem_skill_direta(perfil_texto, row_texto) else 0.0
 
-                # Boost por nome exato do cargo na vaga
-                boost_nome_exato = 0.15 if (nome_perfil and limpar_texto(nome_perfil) in row_texto) else 0.0
+                # Boost de cargo baseado em "perfil solicitado resumido"
+                # que é a coluna mais precisa para identificar o cargo da vaga
+                row_vaga_cargo   = vagas_filtradas.iloc[i]
+                perfil_resumido  = limpar_texto(str(row_vaga_cargo.get("perfil solicitado resumido", "")))
 
-                # Boost por termos parciais do cargo
-                # Cada termo encontrado contribui proporcionalmente
-                # Ex: "desenvolvedor" em "desenvolvedor rpa senior" → pontua
-                if termos_cargo:
-                    hits_cargo   = sum(1 for t in termos_cargo if t in row_texto)
-                    boost_cargo  = round((hits_cargo / len(termos_cargo)) * 0.20, 4)
+                # Boost por nome exato do cargo no perfil resumido da vaga
+                boost_nome_exato = 0.15 if (nome_perfil and limpar_texto(nome_perfil) in perfil_resumido) else 0.0
+
+                # Boost por termos parciais do cargo no perfil resumido
+                # Ex: "desenvolvedor" + "rpa" em "Desenvolvedor de RPA Sênior" → 100% → +0.20
+                if termos_cargo and perfil_resumido:
+                    hits_cargo  = sum(1 for t in termos_cargo if t in perfil_resumido)
+                    boost_cargo = round((hits_cargo / len(termos_cargo)) * 0.20, 4)
                 else:
-                    boost_cargo  = 0.0
+                    boost_cargo = 0.0
 
                 # Usa o maior entre nome exato e parcial (evita dupla contagem)
                 boost_nome   = max(boost_nome_exato, boost_cargo)
@@ -977,8 +981,8 @@ if file_vagas and file_colab:
                 rol_ok          = rol_compativel(rol_colab_val, rol_vaga_val)
                 nome_perfil_val = nome_perfil if nome_perfil else "—"
 
-                # Perfil profissional da vaga para mostrar no breakdown
-                perfil_prof_vaga = str(row.get("perfil profesional", "")).strip() or "—"
+                # Perfil solicitado resumido da vaga para mostrar no breakdown
+                perfil_prof_vaga = str(row.get("perfil solicitado resumido", "")).strip() or "—"
                 if len(perfil_prof_vaga) > 60:
                     perfil_prof_vaga = perfil_prof_vaga[:60] + "..."
 
