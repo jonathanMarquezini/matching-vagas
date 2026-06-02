@@ -959,23 +959,28 @@ if file_vagas and file_colab:
                     "boost_taxa": 0, "total": row["match"]
                 })
 
-                score_real  = bd["total"]           # 0..∞ (pode passar 1.0 com boosts)
-                score_pct   = round(row["match"] * 100, 2)   # % exibido na tabela
+                score_real = bd["total"]
+                score_pct  = round(row["match"] * 100, 2)
 
-                # Normaliza cada parcela proporcionalmente ao score_pct
-                # para que a soma do breakdown == score exibido
-                denom = score_real if score_real > 0 else 1
-
+                # Cada parcela convertida para % do score total
+                # A soma p_tfidf + p_cargo + p_skills + p_cv + p_taxa == score_pct
+                denom    = score_real if score_real > 0 else 1
                 p_tfidf  = round((bd["tfidf"]        / denom) * score_pct, 1)
-                p_perfil = round((bd["boost_perfil"]  / denom) * score_pct, 1)
-                p_nome   = round((bd["boost_nome"]    / denom) * score_pct, 1)
+                p_cargo  = round((bd["boost_nome"]    / denom) * score_pct, 1)  # boost de cargo/perfil
+                p_skills = round((bd["boost_perfil"]  / denom) * score_pct, 1)  # boost de skills diretas
                 p_cv     = round((bd["boost_cv"]      / denom) * score_pct, 1)
                 p_taxa   = round((bd["boost_taxa"]    / denom) * score_pct, 1)
 
                 # ── informações de contexto ──────────────────────────────
-                rol_colab_val = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
-                rol_vaga_val  = str(row.get(coluna_rol_vaga,  ""))        if coluna_rol_vaga  else ""
-                rol_ok        = rol_compativel(rol_colab_val, rol_vaga_val)
+                rol_colab_val   = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
+                rol_vaga_val    = str(row.get(coluna_rol_vaga, ""))         if coluna_rol_vaga  else ""
+                rol_ok          = rol_compativel(rol_colab_val, rol_vaga_val)
+                nome_perfil_val = nome_perfil if nome_perfil else "—"
+
+                # Perfil profissional da vaga para mostrar no breakdown
+                perfil_prof_vaga = str(row.get("perfil profesional", "")).strip() or "—"
+                if len(perfil_prof_vaga) > 60:
+                    perfil_prof_vaga = perfil_prof_vaga[:60] + "..."
 
                 taxa_c  = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
                 taxa_v  = tratar_taxa(row.get(coluna_taxa_vaga))          if coluna_taxa_vaga  else 0
@@ -984,29 +989,29 @@ if file_vagas and file_colab:
                 cv_presente = texto_cv_limpo.strip() != ""
 
                 # ── CRITÉRIO 1 — ADERÊNCIA GERAL DO PERFIL ───────────
-                tfidf_ok     = p_tfidf >= (score_pct * 0.4)
-                faltou_tfidf = ""
+                tfidf_ok       = p_tfidf >= (score_pct * 0.4)
                 breakdown_html = _linha(
                     "O perfil combina com a vaga?",
                     p_tfidf, p_tfidf,
                     "#1f6feb" if tfidf_ok else ("#f0883e" if p_tfidf > 0 else "#f85149"),
                     "Perfil, cargo e CV do colaborador",
                     "Requisitos da vaga",
-                    tfidf_ok, faltou_tfidf
+                    tfidf_ok, ""
                 )
 
-                # ── CRITÉRIO 2 — ROL ────────────────────────────────────
-                faltou_rol = "" if rol_ok else (
-                    f"A vaga exige o cargo '{rol_vaga_val or '—'}', mas o colaborador é '{rol_colab_val or '—'}'. Os cargos precisam ser iguais para pontuar."
+                # ── CRITÉRIO 2 — CARGO / PERFIL PROFISSIONAL ────────────
+                # Mostra o nome do cargo do colaborador vs perfil da vaga
+                cargo_ok   = p_cargo > 0
+                faltou_rol = "" if cargo_ok else (
+                    f"O cargo '{nome_perfil_val}' não foi encontrado nos requisitos da vaga."
                 )
                 breakdown_html += _linha(
-                    "O cargo é o mesmo que a vaga pede?",
-                    p_perfil if rol_ok else 0,
-                    p_perfil if rol_ok else 0,
-                    "#238636" if rol_ok else "#f85149",
-                    f"Colaborador: {rol_colab_val or '—'}",
-                    f"Vaga: {rol_vaga_val or '—'}",
-                    rol_ok, faltou_rol
+                    "O cargo do colaborador aparece na vaga?",
+                    p_cargo, p_cargo,
+                    "#238636" if cargo_ok else "#f85149",
+                    f"{nome_perfil_val}",
+                    f"{perfil_prof_vaga}",
+                    cargo_ok, faltou_rol
                 )
 
                 # ── CRITÉRIO 3 — TAXA ────────────────────────────────────
