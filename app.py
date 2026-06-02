@@ -1036,7 +1036,7 @@ if file_vagas and file_colab:
                 # ── CRITÉRIO 1 — ADERÊNCIA GERAL DO PERFIL ───────────
                 tfidf_ok       = p_tfidf >= (score_pct * 0.4)
                 breakdown_html = _linha(
-                    "O perfil combina com a vaga?",
+                    "As skills técnicas combinam com a vaga?",
                     p_tfidf, p_tfidf,
                     "#1f6feb" if tfidf_ok else ("#f0883e" if p_tfidf > 0 else "#f85149"),
                     "Perfil, cargo e CV do colaborador",
