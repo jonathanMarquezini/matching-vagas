@@ -697,76 +697,108 @@ if file_vagas and file_colab:
             breakdowns     = []
 
             # =========================
-            # ⚖️ PESOS DA MÉDIA PONDERADA
-            # Soma dos pesos = 1.0 (100%)
+            # ⚖️ PESOS BASE — média ponderada
             # =========================
-            PESO_TFIDF = 0.40   # Similaridade semântica geral
-            PESO_CARGO = 0.25   # Cargo/perfil profissional
-            PESO_ROL   = 0.15   # Nível (Rol)
-            PESO_TAXA  = 0.10   # Taxa / remuneração
-            PESO_CV    = 0.10   # CV enviado
+            PESO_TFIDF = 0.40
+            PESO_CARGO = 0.25
+            PESO_ROL   = 0.15
+            PESO_TAXA  = 0.10
+            PESO_CV    = 0.10
 
-            # Pré-processa termos do cargo do colaborador
-            # Ex: "Desenvolvedor de RPA" → ["desenvolvedor", "rpa"]
+            # Verifica se colaborador tem perfil suficiente para TF-IDF
+            # (descrição + cargo + CV). Se não tiver, redistribui o peso
+            # do TF-IDF para os critérios objetivos.
+            tem_perfil_suficiente = len(perfil_texto.split()) >= 10
+
+            # Pré-processa termos do cargo — normaliza "full stack" / "fullstack"
+            def normalizar_cargo(texto):
+                t = limpar_texto(texto)
+                # junta variações comuns: "full stack" → "fullstack"
+                t = re.sub(r"full\s+stack", "fullstack", t)
+                t = re.sub(r"front\s+end",  "frontend",  t)
+                t = re.sub(r"back\s+end",   "backend",   t)
+                return t
+
             termos_cargo = []
+            cargo_normalizado = ""
             if nome_perfil:
-                termos_cargo = [
-                    t for t in limpar_texto(nome_perfil).split()
-                    if len(t) > 2
-                ]
+                cargo_normalizado = normalizar_cargo(nome_perfil)
+                termos_cargo = [t for t in cargo_normalizado.split() if len(t) > 2]
 
             for i, row_texto in enumerate(vagas_filtradas["texto"]):
 
                 row_vaga_i = vagas_filtradas.iloc[i]
 
-                # ── 1. TFIDF — similaridade semântica (0..1) ────────────
-                score_tfidf = scores[i]   # já está normalizado 0..1
+                # ── 1. TFIDF ────────────────────────────────────────────
+                score_tfidf = scores[i]
 
-                # ── 2. CARGO — termos do cargo vs perfil resumido (0..1) ─
-                perfil_resumido = limpar_texto(str(row_vaga_i.get("perfil solicitado resumido", "")))
+                # ── 2. CARGO — normalizado para lidar com variações ──────
+                perfil_resumido     = normalizar_cargo(str(row_vaga_i.get("perfil solicitado resumido", "")))
+                perfil_resumido_raw = limpar_texto(str(row_vaga_i.get("perfil solicitado resumido", "")))
+
                 if termos_cargo and perfil_resumido:
                     hits_cargo  = sum(1 for t in termos_cargo if t in perfil_resumido)
                     score_cargo = hits_cargo / len(termos_cargo)
-                elif nome_perfil and limpar_texto(nome_perfil) in perfil_resumido:
+                elif cargo_normalizado and cargo_normalizado in perfil_resumido:
                     score_cargo = 1.0
                 else:
                     score_cargo = 0.0
 
-                # ── 3. ROL — compatibilidade de nível (0 ou 1) ──────────
+                # ── 3. ROL ───────────────────────────────────────────────
                 rol_c = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
                 rol_v = str(row_vaga_i.get(coluna_rol_vaga,  "")) if coluna_rol_vaga  else ""
                 score_rol = 1.0 if rol_compativel(rol_c, rol_v) else 0.0
 
-                # ── 4. TAXA — dentro do limite (0 ou 1) ─────────────────
+                # ── 4. TAXA ──────────────────────────────────────────────
                 taxa_c_loop = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
                 taxa_v_loop = tratar_taxa(row_vaga_i.get(coluna_taxa_vaga))  if coluna_taxa_vaga  else 0
 
                 if taxa_v_loop > 0 and taxa_c_loop > 0:
                     score_taxa = 1.0 if taxa_c_loop <= taxa_v_loop else 0.0
                 else:
-                    score_taxa = 0.0   # taxa não informada — não pontua
+                    score_taxa = 0.0
 
-                # ── 5. CV — enviado e com conteúdo relevante (0 ou 1) ───
+                # ── 5. CV ────────────────────────────────────────────────
                 score_cv = 1.0 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
 
-                # ── SCORE FINAL — média ponderada ────────────────────────
+                # ── PESOS DINÂMICOS ──────────────────────────────────────
+                # Se o colaborador não tem perfil suficiente para TF-IDF,
+                # redistribui o peso do TF-IDF para cargo, rol e taxa
+                # proporcionalmente — assim não penaliza por falta de dados.
+                if tem_perfil_suficiente:
+                    p_tfidf = PESO_TFIDF
+                    p_cargo = PESO_CARGO
+                    p_rol   = PESO_ROL
+                    p_taxa  = PESO_TAXA
+                    p_cv    = PESO_CV
+                else:
+                    # TF-IDF sem dados confiáveis → redistribui seus 40%
+                    extra   = PESO_TFIDF / 3
+                    p_tfidf = 0.0
+                    p_cargo = PESO_CARGO + extra
+                    p_rol   = PESO_ROL   + extra
+                    p_taxa  = PESO_TAXA  + extra
+                    p_cv    = PESO_CV
+
+                # ── SCORE FINAL ──────────────────────────────────────────
                 score_final = (
-                    score_tfidf * PESO_TFIDF +
-                    score_cargo * PESO_CARGO +
-                    score_rol   * PESO_ROL   +
-                    score_taxa  * PESO_TAXA  +
-                    score_cv    * PESO_CV
+                    score_tfidf * p_tfidf +
+                    score_cargo * p_cargo +
+                    score_rol   * p_rol   +
+                    score_taxa  * p_taxa  +
+                    score_cv    * p_cv
                 )
 
                 final_scores.append(round(score_final, 4))
 
                 breakdowns.append({
-                    "tfidf":      round(score_tfidf * PESO_TFIDF, 4),
-                    "cargo":      round(score_cargo * PESO_CARGO, 4),
-                    "rol":        round(score_rol   * PESO_ROL,   4),
-                    "taxa":       round(score_taxa  * PESO_TAXA,  4),
-                    "cv":         round(score_cv    * PESO_CV,    4),
-                    "total":      round(score_final, 4),
+                    "tfidf":              round(score_tfidf * p_tfidf, 4),
+                    "cargo":              round(score_cargo * p_cargo, 4),
+                    "rol":                round(score_rol   * p_rol,   4),
+                    "taxa":               round(score_taxa  * p_taxa,  4),
+                    "cv":                 round(score_cv    * p_cv,    4),
+                    "total":              round(score_final, 4),
+                    "perfil_suficiente":  tem_perfil_suficiente,
                 })
 
             vagas_filtradas["match"]      = final_scores
