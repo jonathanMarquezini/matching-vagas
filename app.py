@@ -696,8 +696,17 @@ if file_vagas and file_colab:
             final_scores   = []
             breakdowns     = []
 
-            # Pré-processa termos do cargo do colaborador para boost de cargo
-            # Divide em palavras individuais com mais de 2 caracteres
+            # =========================
+            # ⚖️ PESOS DA MÉDIA PONDERADA
+            # Soma dos pesos = 1.0 (100%)
+            # =========================
+            PESO_TFIDF = 0.40   # Similaridade semântica geral
+            PESO_CARGO = 0.25   # Cargo/perfil profissional
+            PESO_ROL   = 0.15   # Nível (Rol)
+            PESO_TAXA  = 0.10   # Taxa / remuneração
+            PESO_CV    = 0.10   # CV enviado
+
+            # Pré-processa termos do cargo do colaborador
             # Ex: "Desenvolvedor de RPA" → ["desenvolvedor", "rpa"]
             termos_cargo = []
             if nome_perfil:
@@ -708,55 +717,56 @@ if file_vagas and file_colab:
 
             for i, row_texto in enumerate(vagas_filtradas["texto"]):
 
-                score_tfidf  = scores[i]
+                row_vaga_i = vagas_filtradas.iloc[i]
 
-                boost_perfil = 0.10 if tem_skill_direta(perfil_texto, row_texto) else 0.0
+                # ── 1. TFIDF — similaridade semântica (0..1) ────────────
+                score_tfidf = scores[i]   # já está normalizado 0..1
 
-                # Boost de cargo baseado em "perfil solicitado resumido"
-                # que é a coluna mais precisa para identificar o cargo da vaga
-                row_vaga_cargo   = vagas_filtradas.iloc[i]
-                perfil_resumido  = limpar_texto(str(row_vaga_cargo.get("perfil solicitado resumido", "")))
-
-                # Boost por nome exato do cargo no perfil resumido da vaga
-                boost_nome_exato = 0.15 if (nome_perfil and limpar_texto(nome_perfil) in perfil_resumido) else 0.0
-
-                # Boost por termos parciais do cargo no perfil resumido
-                # Ex: "desenvolvedor" + "rpa" em "Desenvolvedor de RPA Sênior" → 100% → +0.20
+                # ── 2. CARGO — termos do cargo vs perfil resumido (0..1) ─
+                perfil_resumido = limpar_texto(str(row_vaga_i.get("perfil solicitado resumido", "")))
                 if termos_cargo and perfil_resumido:
                     hits_cargo  = sum(1 for t in termos_cargo if t in perfil_resumido)
-                    boost_cargo = round((hits_cargo / len(termos_cargo)) * 0.20, 4)
+                    score_cargo = hits_cargo / len(termos_cargo)
+                elif nome_perfil and limpar_texto(nome_perfil) in perfil_resumido:
+                    score_cargo = 1.0
                 else:
-                    boost_cargo = 0.0
+                    score_cargo = 0.0
 
-                # Usa o maior entre nome exato e parcial (evita dupla contagem)
-                boost_nome   = max(boost_nome_exato, boost_cargo)
+                # ── 3. ROL — compatibilidade de nível (0 ou 1) ──────────
+                rol_c = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
+                rol_v = str(row_vaga_i.get(coluna_rol_vaga,  "")) if coluna_rol_vaga  else ""
+                score_rol = 1.0 if rol_compativel(rol_c, rol_v) else 0.0
 
-                boost_cv     = 0.20 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
+                # ── 4. TAXA — dentro do limite (0 ou 1) ─────────────────
+                taxa_c_loop = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
+                taxa_v_loop = tratar_taxa(row_vaga_i.get(coluna_taxa_vaga))  if coluna_taxa_vaga  else 0
 
-                # Boost de taxa: binário — se taxa do colaborador <= taxa
-                # da vaga, recebe boost fixo de +15%. Se for maior, zero.
-                row_vaga     = vagas_filtradas.iloc[i]
-                taxa_c_loop  = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
-                taxa_v_loop  = tratar_taxa(row_vaga.get(coluna_taxa_vaga))    if coluna_taxa_vaga  else 0
-
-                if taxa_v_loop > 0 and taxa_c_loop > 0 and taxa_c_loop <= taxa_v_loop:
-                    boost_taxa = 0.15   # dentro do limite — pontua cheio
-                elif taxa_v_loop > 0 and taxa_c_loop > taxa_v_loop:
-                    boost_taxa = 0.0    # acima do limite — não pontua
+                if taxa_v_loop > 0 and taxa_c_loop > 0:
+                    score_taxa = 1.0 if taxa_c_loop <= taxa_v_loop else 0.0
                 else:
-                    boost_taxa = 0.0    # taxa não informada — neutro
+                    score_taxa = 0.0   # taxa não informada — não pontua
 
-                score_final  = score_tfidf + boost_perfil + boost_nome + boost_cv + boost_taxa
+                # ── 5. CV — enviado e com conteúdo relevante (0 ou 1) ───
+                score_cv = 1.0 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
+
+                # ── SCORE FINAL — média ponderada ────────────────────────
+                score_final = (
+                    score_tfidf * PESO_TFIDF +
+                    score_cargo * PESO_CARGO +
+                    score_rol   * PESO_ROL   +
+                    score_taxa  * PESO_TAXA  +
+                    score_cv    * PESO_CV
+                )
 
                 final_scores.append(round(score_final, 4))
 
                 breakdowns.append({
-                    "tfidf":        round(score_tfidf,  4),
-                    "boost_perfil": round(boost_perfil, 4),
-                    "boost_nome":   round(boost_nome,   4),
-                    "boost_cv":     round(boost_cv,     4),
-                    "boost_taxa":   round(boost_taxa,   4),
-                    "total":        round(score_final,  4),
+                    "tfidf":      round(score_tfidf * PESO_TFIDF, 4),
+                    "cargo":      round(score_cargo * PESO_CARGO, 4),
+                    "rol":        round(score_rol   * PESO_ROL,   4),
+                    "taxa":       round(score_taxa  * PESO_TAXA,  4),
+                    "cv":         round(score_cv    * PESO_CV,    4),
+                    "total":      round(score_final, 4),
                 })
 
             vagas_filtradas["match"]      = final_scores
@@ -958,22 +968,19 @@ if file_vagas and file_colab:
 
                 # ── recupera o breakdown real desta vaga ─────────────────
                 bd = row.get("_breakdown", {
-                    "tfidf": 0, "boost_perfil": 0,
-                    "boost_nome": 0, "boost_cv": 0,
-                    "boost_taxa": 0, "total": row["match"]
+                    "tfidf": 0, "cargo": 0, "rol": 0,
+                    "taxa": 0, "cv": 0, "total": row["match"]
                 })
 
-                score_real = bd["total"]
-                score_pct  = round(row["match"] * 100, 2)
+                score_pct = round(row["match"] * 100, 2)
 
-                # Cada parcela convertida para % do score total
-                # A soma p_tfidf + p_cargo + p_skills + p_cv + p_taxa == score_pct
-                denom    = score_real if score_real > 0 else 1
-                p_tfidf  = round((bd["tfidf"]        / denom) * score_pct, 1)
-                p_cargo  = round((bd["boost_nome"]    / denom) * score_pct, 1)  # boost de cargo/perfil
-                p_skills = round((bd["boost_perfil"]  / denom) * score_pct, 1)  # boost de skills diretas
-                p_cv     = round((bd["boost_cv"]      / denom) * score_pct, 1)
-                p_taxa   = round((bd["boost_taxa"]    / denom) * score_pct, 1)
+                # Cada parcela já está em escala 0..peso_max
+                # Converte para % do score total (ex: 0.10 taxa → 10%)
+                p_tfidf  = round(bd["tfidf"] * 100, 1)
+                p_cargo  = round(bd["cargo"] * 100, 1)
+                p_skills = round(bd["rol"]   * 100, 1)
+                p_cv     = round(bd["cv"]    * 100, 1)
+                p_taxa   = round(bd["taxa"]  * 100, 1)
 
                 # ── informações de contexto ──────────────────────────────
                 rol_colab_val   = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
