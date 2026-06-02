@@ -856,6 +856,8 @@ if file_vagas and file_colab:
             "match",
             "perfil profesional",
             "perfil solicitado resumido",
+            "lugar de trabajo",
+            "lugar de trabajo definitivo",
             "perfil solicitado detallado",
             "conocimientos funcionales",
             "conocimientos tecnicos",
