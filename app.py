@@ -704,7 +704,24 @@ if file_vagas and file_colab:
                 boost_nome   = 0.15 if (nome_perfil and nome_perfil.lower() in row_texto) else 0.0
                 boost_cv     = 0.20 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
 
-                score_final  = score_tfidf + boost_perfil + boost_nome + boost_cv
+                # Boost de taxa: proporcional à aderência (quanto mais próximo
+                # do limite da vaga, maior o boost). Se taxa do colaborador
+                # for maior que a vaga, o boost é 0 (vaga já seria descartada
+                # pelo filtro, mas garantimos aqui também).
+                row_vaga     = vagas_filtradas.iloc[i]
+                taxa_c_loop  = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
+                taxa_v_loop  = tratar_taxa(row_vaga.get(coluna_taxa_vaga))    if coluna_taxa_vaga  else 0
+
+                if taxa_v_loop > 0 and taxa_c_loop > 0 and taxa_c_loop <= taxa_v_loop:
+                    # Proximidade: 1.0 = taxa exatamente no limite, decresce quanto menor for
+                    proporcao   = taxa_c_loop / taxa_v_loop
+                    boost_taxa  = round(0.15 * proporcao, 4)   # máximo +15% quando no limite
+                elif taxa_v_loop > 0 and taxa_c_loop > taxa_v_loop:
+                    boost_taxa  = 0.0   # acima do limite — não pontua
+                else:
+                    boost_taxa  = 0.0   # taxa não informada — neutro
+
+                score_final  = score_tfidf + boost_perfil + boost_nome + boost_cv + boost_taxa
 
                 final_scores.append(round(score_final, 4))
 
@@ -713,6 +730,7 @@ if file_vagas and file_colab:
                     "boost_perfil": round(boost_perfil, 4),
                     "boost_nome":   round(boost_nome,   4),
                     "boost_cv":     round(boost_cv,     4),
+                    "boost_taxa":   round(boost_taxa,   4),
                     "total":        round(score_final,  4),
                 })
 
@@ -916,7 +934,8 @@ if file_vagas and file_colab:
                 # ── recupera o breakdown real desta vaga ─────────────────
                 bd = row.get("_breakdown", {
                     "tfidf": 0, "boost_perfil": 0,
-                    "boost_nome": 0, "boost_cv": 0, "total": row["match"]
+                    "boost_nome": 0, "boost_cv": 0,
+                    "boost_taxa": 0, "total": row["match"]
                 })
 
                 score_real  = bd["total"]           # 0..∞ (pode passar 1.0 com boosts)
@@ -930,6 +949,7 @@ if file_vagas and file_colab:
                 p_perfil = round((bd["boost_perfil"]  / denom) * score_pct, 1)
                 p_nome   = round((bd["boost_nome"]    / denom) * score_pct, 1)
                 p_cv     = round((bd["boost_cv"]      / denom) * score_pct, 1)
+                p_taxa   = round((bd["boost_taxa"]    / denom) * score_pct, 1)
 
                 # ── informações de contexto ──────────────────────────────
                 rol_colab_val = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
@@ -970,22 +990,26 @@ if file_vagas and file_colab:
 
                 # ── CRITÉRIO 3 — TAXA ────────────────────────────────────
                 if not taxa_c and not taxa_v:
-                    taxa_nota = "Taxa não informada — critério não aplicado"
-                    faltou_taxa = ""
-                elif taxa_ok:
-                    taxa_nota = f"A taxa do colaborador ({taxa_c}) está dentro do limite da vaga ({taxa_v})"
-                    faltou_taxa = ""
+                    faltou_taxa   = ""
+                    taxa_detalhe  = "Taxa não informada nas duas bases — critério não aplicado"
+                elif taxa_ok and taxa_v > 0:
+                    proporcao_vis = round((taxa_c / taxa_v) * 100, 1)
+                    faltou_taxa   = ""
+                    taxa_detalhe  = f"A taxa do colaborador ({taxa_c}) está dentro do limite da vaga ({taxa_v}) — {proporcao_vis}% do limite utilizado"
+                elif taxa_ok and taxa_v == 0:
+                    faltou_taxa   = ""
+                    taxa_detalhe  = "A taxa máxima da vaga não foi informada — considerado compatível"
                 else:
-                    taxa_nota = ""
-                    faltou_taxa = f"A taxa do colaborador ({taxa_c}) está acima do limite aceito pela vaga ({taxa_v}). Isso pode inviabilizar a alocação."
+                    faltou_taxa   = f"A taxa do colaborador ({taxa_c}) é maior que o limite da vaga ({taxa_v}). Essa vaga seria descartada na análise."
+                    taxa_detalhe  = ""
 
                 breakdown_html += _linha(
                     "A remuneração está dentro do limite da vaga?",
-                    p_nome if taxa_ok else 0,
-                    p_nome if taxa_ok else 0,
-                    "#238636" if taxa_ok else "#f0883e",
-                    f"Taxa atual: {taxa_c}" if taxa_c else "Não informada",
-                    f"Limite máximo: {taxa_v}" if taxa_v else "Não informado",
+                    p_taxa if taxa_ok else 0,
+                    p_taxa if taxa_ok else 0,
+                    "#238636" if (taxa_ok and p_taxa > 0) else ("#8b949e" if (not taxa_c and not taxa_v) else "#f85149"),
+                    f"Taxa do colaborador: {taxa_c}" if taxa_c else "Não informada",
+                    f"Limite máximo da vaga: {taxa_v}" if taxa_v else "Não informado",
                     taxa_ok, faltou_taxa
                 )
 
