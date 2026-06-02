@@ -415,6 +415,29 @@ if file_vagas and file_colab:
 
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
+    # =========================
+    # 🔧 EXTRAIR CAMPO "Outros"
+    # de Observaciones Necesidad
+    # =========================
+    col_obs = next((c for c in vagas.columns if "observaciones" in c and "necesidad" in c), None)
+    if col_obs is None:
+        col_obs = next((c for c in vagas.columns if "observaciones" in c), None)
+
+    def extrair_outros(texto):
+        if pd.isna(texto) or str(texto).strip() == "":
+            return "-"
+        texto = str(texto)
+        # Busca case-insensitive por "outros:" ou "otros:"
+        match = re.search(r"(?i)(?:outros|otros)\s*:\s*(.+)", texto, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        return "-"
+
+    if col_obs:
+        vagas["outros"] = vagas[col_obs].apply(extrair_outros)
+    else:
+        vagas["outros"] = "-"
+
     st.success("✅ Bases carregadas com sucesso")
 
     st.divider()
@@ -742,6 +765,7 @@ if file_vagas and file_colab:
             "proyecto",
             "solicitante",
             "necesidad",
+            "estado necesidad",
             "rol reporting",
             "tasa máxima deseable",
             "match",
@@ -749,8 +773,14 @@ if file_vagas and file_colab:
             "perfil solicitado resumido",
             "perfil solicitado detallado",
             "conocimientos funcionales",
-            "conocimientos tecnicos"
+            "conocimientos tecnicos",
+            "observaciones necesidad",
+            "outros"
         ]
+
+        # garante que "observaciones necesidad" aponte para a coluna real
+        if col_obs and col_obs not in colunas_exibir:
+            colunas_exibir = [col_obs if c == "observaciones necesidad" else c for c in colunas_exibir]
 
         colunas_exibir = [
             c for c in colunas_exibir
@@ -1019,6 +1049,17 @@ if file_vagas and file_colab:
 
                 st.markdown("### 💻 Conhecimentos Técnicos")
                 st.write(row.get("conocimientos tecnicos", "-"))
+
+                obs_val = row.get(col_obs, "-") if col_obs else "-"
+                outros_val = row.get("outros", "-")
+
+                if obs_val and str(obs_val).strip() not in ("", "-", "nan"):
+                    st.markdown("### 📝 Observações da Necessidade")
+                    st.write(obs_val)
+
+                if outros_val and str(outros_val).strip() not in ("", "-", "nan"):
+                    st.markdown("### 💬 Outros")
+                    st.info(outros_val)
 
         # =========================
         # 📥 DOWNLOAD EXCEL
