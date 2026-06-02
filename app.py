@@ -696,12 +696,37 @@ if file_vagas and file_colab:
             final_scores   = []
             breakdowns     = []
 
+            # Pré-processa termos do cargo do colaborador para boost de cargo
+            # Divide em palavras individuais com mais de 2 caracteres
+            # Ex: "Desenvolvedor de RPA" → ["desenvolvedor", "rpa"]
+            termos_cargo = []
+            if nome_perfil:
+                termos_cargo = [
+                    t for t in limpar_texto(nome_perfil).split()
+                    if len(t) > 2
+                ]
+
             for i, row_texto in enumerate(vagas_filtradas["texto"]):
 
                 score_tfidf  = scores[i]
 
                 boost_perfil = 0.10 if tem_skill_direta(perfil_texto, row_texto) else 0.0
-                boost_nome   = 0.15 if (nome_perfil and nome_perfil.lower() in row_texto) else 0.0
+
+                # Boost por nome exato do cargo na vaga
+                boost_nome_exato = 0.15 if (nome_perfil and limpar_texto(nome_perfil) in row_texto) else 0.0
+
+                # Boost por termos parciais do cargo
+                # Cada termo encontrado contribui proporcionalmente
+                # Ex: "desenvolvedor" em "desenvolvedor rpa senior" → pontua
+                if termos_cargo:
+                    hits_cargo   = sum(1 for t in termos_cargo if t in row_texto)
+                    boost_cargo  = round((hits_cargo / len(termos_cargo)) * 0.20, 4)
+                else:
+                    boost_cargo  = 0.0
+
+                # Usa o maior entre nome exato e parcial (evita dupla contagem)
+                boost_nome   = max(boost_nome_exato, boost_cargo)
+
                 boost_cv     = 0.20 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
 
                 # Boost de taxa: binário — se taxa do colaborador <= taxa
