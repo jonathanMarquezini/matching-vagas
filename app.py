@@ -960,7 +960,7 @@ if file_vagas and file_colab:
 
                 # ── CRITÉRIO 1 — ADERÊNCIA GERAL DO PERFIL ───────────
                 tfidf_ok     = p_tfidf >= (score_pct * 0.4)
-                faltou_tfidf = "" if tfidf_ok else "O perfil do colaborador tem pouco em comum com o que essa vaga pede. Considere buscar vagas mais próximas da área de atuação dele."
+                faltou_tfidf = ""
                 breakdown_html = _linha(
                     "O perfil combina com a vaga?",
                     p_tfidf, p_tfidf,
@@ -1082,4 +1082,4 @@ if file_vagas and file_colab:
 # =========================
 # 🧾 FOOTER
 # =========================
-st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>💼 Matching Inteligente de Vagas • v4.4</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> • UGR Brasil</div></div></div>", unsafe_allow_html=True)
+st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>💼 Matching Inteligente de Vagas • v4.4</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> • UGR</div></div></div>", unsafe_allow_html=True)
