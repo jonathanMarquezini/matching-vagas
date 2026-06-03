@@ -354,6 +354,89 @@ def gerar_excel(df):
     return output
 
 # =========================
+# 🕓 INICIALIZAR HISTÓRICO
+# =========================
+if "historico" not in st.session_state:
+    st.session_state.historico = []
+
+if "historico_selecionado" not in st.session_state:
+    st.session_state.historico_selecionado = None
+
+# =========================
+# 🕓 PAINEL DE HISTÓRICO
+# =========================
+if st.session_state.historico:
+
+    with st.expander(f"🕓 Histórico da sessão — {len(st.session_state.historico)} análise(s) realizada(s)", expanded=False):
+
+        for h in st.session_state.historico:
+
+            col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns([3, 1, 1, 1, 1])
+
+            with col_h1:
+                st.markdown(f"**{h['colaborador']}**")
+                st.caption(h['data_hora'])
+
+            with col_h2:
+                st.metric("Vagas", h['vagas'])
+
+            with col_h3:
+                st.metric("Score médio", f"{h['score_medio']}%")
+
+            with col_h4:
+                st.metric("CV", "✅" if h['cv_usado'] else "❌")
+
+            with col_h5:
+                if st.button("🔍 Ver", key=f"hist_{h['colaborador']}_{h['data_hora']}"):
+                    st.session_state.historico_selecionado = h
+
+            st.divider()
+
+# =========================
+# 📊 EXIBIR ANÁLISE DO HISTÓRICO
+# =========================
+if st.session_state.historico_selecionado:
+
+    h = st.session_state.historico_selecionado
+
+    st.markdown(
+        f"""
+        <div style="
+            background: linear-gradient(135deg, #1c2330 0%, #161b22 100%);
+            border: 1px solid #6e40c955;
+            border-left: 4px solid #6e40c9;
+            border-radius: 12px;
+            padding: 18px 24px;
+            margin-bottom: 20px;
+        ">
+            <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">📂 Análise do histórico — {h['data_hora']}</div>
+            <div style="color:#e6edf3; font-size:22px; font-weight:700;">
+                🕓 Última análise de <span style="color:#a371f7;">{h['colaborador']}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    col_h1, col_h2, col_h3 = st.columns(3)
+    with col_h1:
+        st.metric("Vagas encontradas", h['vagas'])
+    with col_h2:
+        st.metric("Score médio", f"{h['score_medio']}%")
+    with col_h3:
+        st.metric("CV utilizado no match", "✅ Sim" if h['cv_usado'] else "❌ Não")
+
+    if h.get("colunas") and h.get("resultado") is not None:
+        colunas_hist = [c for c in h["colunas"] if c in h["resultado"].columns]
+        st.dataframe(h["resultado"][colunas_hist], use_container_width=True, height=500)
+
+    if st.button("✖️ Fechar histórico"):
+        st.session_state.historico_selecionado = None
+        st.rerun()
+
+    st.divider()
+
+# =========================
 # 📂 UPLOAD BASES
 # =========================
 st.subheader("📂 Upload das Bases")
@@ -427,7 +510,6 @@ if file_vagas and file_colab:
         if pd.isna(texto) or str(texto).strip() == "":
             return "-"
         texto = str(texto)
-        # Busca case-insensitive por "outros:" ou "otros:"
         match = re.search(r"(?i)(?:outros|otros)\s*:\s*(.+)", texto, re.DOTALL)
         if match:
             return match.group(1).strip()
@@ -514,7 +596,7 @@ if file_vagas and file_colab:
         "perfil_resumo"
     ])
 
-    coluna_rol_colab = encontrar_coluna(colab, ["roll", "rol", "role", "nivel"])
+    coluna_rol_colab  = encontrar_coluna(colab, ["roll", "rol", "role", "nivel"])
     coluna_taxa_colab = encontrar_coluna(colab, ["taxa", "tasa", "rate", "valor"])
     coluna_rol_vaga   = encontrar_coluna(vagas, ["rol reporting", "rol", "role", "nivel"])
     coluna_taxa_vaga  = encontrar_coluna(vagas, [
@@ -688,15 +770,6 @@ if file_vagas and file_colab:
             )[0]
 
             # =========================
-            # 🔥 BOOST + BREAKDOWN
-            # Guardamos cada parcela para
-            # exibir no painel de transparência
-            # =========================
-            texto_cv_limpo = limpar_texto(texto_cv)
-            final_scores   = []
-            breakdowns     = []
-
-            # =========================
             # ⚖️ PESOS BASE — média ponderada
             # =========================
             PESO_TFIDF = 0.40
@@ -706,14 +779,11 @@ if file_vagas and file_colab:
             PESO_CV    = 0.10
 
             # Verifica se colaborador tem perfil suficiente para TF-IDF
-            # (descrição + cargo + CV). Se não tiver, redistribui o peso
-            # do TF-IDF para os critérios objetivos.
             tem_perfil_suficiente = len(perfil_texto.split()) >= 10
 
-            # Pré-processa termos do cargo — normaliza "full stack" / "fullstack"
+            # Pré-processa termos do cargo — normaliza variações comuns
             def normalizar_cargo(texto):
                 t = limpar_texto(texto)
-                # junta variações comuns: "full stack" → "fullstack"
                 t = re.sub(r"full\s+stack", "fullstack", t)
                 t = re.sub(r"front\s+end",  "frontend",  t)
                 t = re.sub(r"back\s+end",   "backend",   t)
@@ -725,6 +795,10 @@ if file_vagas and file_colab:
                 cargo_normalizado = normalizar_cargo(nome_perfil)
                 termos_cargo = [t for t in cargo_normalizado.split() if len(t) > 2]
 
+            texto_cv_limpo = limpar_texto(texto_cv)
+            final_scores   = []
+            breakdowns     = []
+
             for i, row_texto in enumerate(vagas_filtradas["texto"]):
 
                 row_vaga_i = vagas_filtradas.iloc[i]
@@ -732,9 +806,8 @@ if file_vagas and file_colab:
                 # ── 1. TFIDF ────────────────────────────────────────────
                 score_tfidf = scores[i]
 
-                # ── 2. CARGO — normalizado para lidar com variações ──────
-                perfil_resumido     = normalizar_cargo(str(row_vaga_i.get("perfil solicitado resumido", "")))
-                perfil_resumido_raw = limpar_texto(str(row_vaga_i.get("perfil solicitado resumido", "")))
+                # ── 2. CARGO ─────────────────────────────────────────────
+                perfil_resumido = normalizar_cargo(str(row_vaga_i.get("perfil solicitado resumido", "")))
 
                 if termos_cargo and perfil_resumido:
                     hits_cargo  = sum(1 for t in termos_cargo if t in perfil_resumido)
@@ -762,9 +835,6 @@ if file_vagas and file_colab:
                 score_cv = 1.0 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
 
                 # ── PESOS DINÂMICOS ──────────────────────────────────────
-                # Se o colaborador não tem perfil suficiente para TF-IDF,
-                # redistribui o peso do TF-IDF para cargo, rol e taxa
-                # proporcionalmente — assim não penaliza por falta de dados.
                 if tem_perfil_suficiente:
                     p_tfidf = PESO_TFIDF
                     p_cargo = PESO_CARGO
@@ -772,7 +842,6 @@ if file_vagas and file_colab:
                     p_taxa  = PESO_TAXA
                     p_cv    = PESO_CV
                 else:
-                    # TF-IDF sem dados confiáveis → redistribui seus 40%
                     extra   = PESO_TFIDF / 3
                     p_tfidf = 0.0
                     p_cargo = PESO_CARGO + extra
@@ -792,13 +861,13 @@ if file_vagas and file_colab:
                 final_scores.append(round(score_final, 4))
 
                 breakdowns.append({
-                    "tfidf":              round(score_tfidf * p_tfidf, 4),
-                    "cargo":              round(score_cargo * p_cargo, 4),
-                    "rol":                round(score_rol   * p_rol,   4),
-                    "taxa":               round(score_taxa  * p_taxa,  4),
-                    "cv":                 round(score_cv    * p_cv,    4),
-                    "total":              round(score_final, 4),
-                    "perfil_suficiente":  tem_perfil_suficiente,
+                    "tfidf":             round(score_tfidf * p_tfidf, 4),
+                    "cargo":             round(score_cargo * p_cargo, 4),
+                    "rol":               round(score_rol   * p_rol,   4),
+                    "taxa":              round(score_taxa  * p_taxa,  4),
+                    "cv":                round(score_cv    * p_cv,    4),
+                    "total":             round(score_final, 4),
+                    "perfil_suficiente": tem_perfil_suficiente,
                 })
 
             vagas_filtradas["match"]      = final_scores
@@ -806,11 +875,43 @@ if file_vagas and file_colab:
 
         # =========================
         # 📊 RESULTADO
+        # Filtro: apenas vagas com score >= 50%
         # =========================
         resultado = vagas_filtradas.sort_values("match", ascending=False)
-        resultado = resultado[resultado["match"] > 0.02]
+        resultado = resultado[resultado["match"] >= 0.50]
+
+        # =========================
+        # 🕓 SALVAR NO HISTÓRICO
+        # =========================
+        import datetime
 
         score_medio = round(resultado["match"].mean() * 100, 1) if len(resultado) > 0 else 0
+
+        entrada_historico = {
+            "colaborador": selecionado,
+            "data_hora":   datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+            "score_medio": score_medio,
+            "vagas":       len(resultado),
+            "resultado":   resultado,
+            "colunas":     None,
+            "cv_usado":    bool(texto_cv.strip()),
+        }
+
+        st.session_state.historico = [
+            h for h in st.session_state.historico
+            if h["colaborador"] != selecionado
+        ]
+        st.session_state.historico.insert(0, entrada_historico)
+
+        # =========================
+        # ⚠️ NENHUMA VAGA >= 50%
+        # =========================
+        if len(resultado) == 0:
+            st.warning(
+                "Nenhuma vaga com score igual ou superior a 50% foi encontrada para este colaborador. "
+                "Tente anexar o CV ou verifique se o perfil está preenchido na base."
+            )
+            st.stop()
 
         # =========================
         # 🏷️ BANNER — VAGAS COMPATÍVEIS
@@ -825,7 +926,7 @@ if file_vagas and file_colab:
                 padding: 18px 24px;
                 margin-bottom: 20px;
             ">
-                <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">Resultado da análise</div>
+                <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">Resultado da análise — apenas vagas com score ≥ 50%</div>
                 <div style="color:#e6edf3; font-size:22px; font-weight:700;">
                     🎯 Vagas compatíveis para <span style="color:#388bfd;">{selecionado}</span>
                 </div>
@@ -874,6 +975,9 @@ if file_vagas and file_colab:
             if c in resultado.columns
         ]
 
+        # Salva colunas no histórico
+        st.session_state.historico[0]["colunas"] = colunas_exibir
+
         # =========================
         # 📊 TABELA PRINCIPAL
         # =========================
@@ -908,11 +1012,43 @@ if file_vagas and file_colab:
         )
 
         # =========================
+        # 🔎 BUSCA POR NECESSIDADE
+        # =========================
+        col_busca, col_limpar = st.columns([5, 1])
+
+        with col_busca:
+            busca_necesidad = st.text_input(
+                "🔍 Buscar vaga pelo número da necessidade",
+                placeholder="Ex: 767648-01/26",
+                key="busca_necesidad"
+            )
+
+        with col_limpar:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🗑️ Limpar", key="limpar_busca"):
+                st.session_state["busca_necesidad"] = ""
+                st.rerun()
+
+        # Define quais vagas exibir no detalhamento
+        if busca_necesidad and busca_necesidad.strip():
+            vagas_detalhe = resultado[
+                resultado["necesidad"].astype(str).str.contains(
+                    busca_necesidad.strip(), case=False, na=False
+                )
+            ]
+            if vagas_detalhe.empty:
+                st.warning(f"Nenhuma vaga encontrada com a necessidade '{busca_necesidad}'.")
+                vagas_detalhe = resultado.head(1)
+        else:
+            # Sem busca — mostra apenas o Top 1
+            vagas_detalhe = resultado.head(1)
+
+        # =========================
         # 📂 DETALHAMENTO
         # =========================
-        for idx, row in resultado.head(10).iterrows():
+        for idx, row in vagas_detalhe.iterrows():
 
-            rol = row.get("rol reporting", "")
+            rol     = row.get("rol reporting", "")
             rol_str = f"| {rol} " if rol and str(rol).strip() else ""
 
             titulo = (
@@ -921,7 +1057,7 @@ if file_vagas and file_colab:
                 f"| Match: {round(row['match'] * 100, 2)}%"
             )
 
-            with st.expander(titulo, expanded=False):
+            with st.expander(titulo, expanded=True):
 
                 st.markdown(f"""
 ### 📌 Informações da Vaga
@@ -943,8 +1079,6 @@ if file_vagas and file_colab:
 
                 # =========================
                 # 🔍 PAINEL DE TRANSPARÊNCIA
-                # Usa os valores REAIS do score
-                # calculado pelo TF-IDF + boost
                 # =========================
                 st.markdown("### 🔍 Por que esse resultado?")
 
@@ -967,8 +1101,8 @@ if file_vagas and file_colab:
                     )
 
                 def _linha(label, pct_exibir, pct_barra, cor, colab_val, vaga_val, ok, faltou=""):
-                    icone    = "✅" if ok else ("⚠️" if pct_exibir > 0 else "❌")
-                    status   = "Compatível" if ok else ("Parcialmente compatível" if pct_exibir > 0 else "Não compatível")
+                    icone      = "✅" if ok else ("⚠️" if pct_exibir > 0 else "❌")
+                    status     = "Compatível" if ok else ("Parcialmente compatível" if pct_exibir > 0 else "Não compatível")
                     cor_status = "#238636" if ok else ("#f0883e" if pct_exibir > 0 else "#f85149")
                     detalhe_colab = f"<span style='color:#c9d1d9;'>Colaborador: <b>{colab_val}</b></span>"
                     detalhe_vaga  = f"<span style='color:#8b949e;'>Vaga exige: <b>{vaga_val}</b></span>"
@@ -1000,7 +1134,7 @@ if file_vagas and file_colab:
                         f"</div>"
                     )
 
-                # ── recupera o breakdown real desta vaga ─────────────────
+                # ── recupera breakdown real ──────────────────────────────
                 bd = row.get("_breakdown", {
                     "tfidf": 0, "cargo": 0, "rol": 0,
                     "taxa": 0, "cv": 0, "total": row["match"]
@@ -1008,8 +1142,6 @@ if file_vagas and file_colab:
 
                 score_pct = round(row["match"] * 100, 2)
 
-                # Cada parcela já está em escala 0..peso_max
-                # Converte para % do score total (ex: 0.10 taxa → 10%)
                 p_tfidf  = round(bd["tfidf"] * 100, 1)
                 p_cargo  = round(bd["cargo"] * 100, 1)
                 p_skills = round(bd["rol"]   * 100, 1)
@@ -1022,7 +1154,6 @@ if file_vagas and file_colab:
                 rol_ok          = rol_compativel(rol_colab_val, rol_vaga_val)
                 nome_perfil_val = nome_perfil if nome_perfil else "—"
 
-                # Perfil solicitado resumido da vaga para mostrar no breakdown
                 perfil_prof_vaga = str(row.get("perfil solicitado resumido", "")).strip() or "—"
                 if len(perfil_prof_vaga) > 60:
                     perfil_prof_vaga = perfil_prof_vaga[:60] + "..."
@@ -1033,7 +1164,7 @@ if file_vagas and file_colab:
 
                 cv_presente = texto_cv_limpo.strip() != ""
 
-                # ── CRITÉRIO 1 — ADERÊNCIA GERAL DO PERFIL ───────────
+                # ── CRITÉRIO 1 — SKILLS TÉCNICAS ────────────────────────
                 tfidf_ok       = p_tfidf >= (score_pct * 0.4)
                 breakdown_html = _linha(
                     "As skills técnicas combinam com a vaga?",
@@ -1044,10 +1175,9 @@ if file_vagas and file_colab:
                     tfidf_ok, ""
                 )
 
-                # ── CRITÉRIO 2 — CARGO / PERFIL PROFISSIONAL ────────────
-                # Mostra o nome do cargo do colaborador vs perfil da vaga
+                # ── CRITÉRIO 2 — CARGO ──────────────────────────────────
                 cargo_ok   = p_cargo > 0
-                faltou_rol = "" if cargo_ok else (
+                faltou_cargo = "" if cargo_ok else (
                     f"O cargo '{nome_perfil_val}' não foi encontrado nos requisitos da vaga."
                 )
                 breakdown_html += _linha(
@@ -1056,7 +1186,7 @@ if file_vagas and file_colab:
                     "#238636" if cargo_ok else "#f85149",
                     f"{nome_perfil_val}",
                     f"{perfil_prof_vaga}",
-                    cargo_ok, faltou_rol
+                    cargo_ok, faltou_cargo
                 )
 
                 # ── CRITÉRIO 3 — ROL ────────────────────────────────────
@@ -1073,15 +1203,13 @@ if file_vagas and file_colab:
                     rol_ok, faltou_rol_nivel
                 )
 
-                # ── CRITÉRIO 5 — TAXA ────────────────────────────────────
+                # ── CRITÉRIO 4 — TAXA ────────────────────────────────────
                 if not taxa_c and not taxa_v:
-                    faltou_taxa  = ""
-                elif taxa_ok and taxa_v > 0:
-                    faltou_taxa  = ""
-                elif taxa_ok and taxa_v == 0:
-                    faltou_taxa  = ""
+                    faltou_taxa = ""
+                elif taxa_ok:
+                    faltou_taxa = ""
                 else:
-                    faltou_taxa  = f"A taxa do colaborador ({taxa_c}) é maior que o limite da vaga ({taxa_v}). Essa vaga seria descartada na análise."
+                    faltou_taxa = f"A taxa do colaborador ({taxa_c}) é maior que o limite da vaga ({taxa_v}). Essa vaga seria descartada na análise."
 
                 breakdown_html += _linha(
                     "A remuneração está dentro do limite da vaga?",
@@ -1093,8 +1221,8 @@ if file_vagas and file_colab:
                     taxa_ok, faltou_taxa
                 )
 
-                # ── CRITÉRIO 6 — CV ──────────────────────────────────────
-                cv_ok    = cv_presente and p_cv > 0
+                # ── CRITÉRIO 5 — CV ──────────────────────────────────────
+                cv_ok     = cv_presente and p_cv > 0
                 faltou_cv = (
                     "" if cv_ok
                     else ("O CV ainda não foi enviado. Anexe o PDF do colaborador para melhorar o resultado do matching."
@@ -1111,11 +1239,11 @@ if file_vagas and file_colab:
                     cv_ok, faltou_cv
                 )
 
-                # ── Score total — igual ao da tabela ─────────────────────
-                cor_total  = "#238636" if score_pct >= 70 else ("#f0883e" if score_pct >= 40 else "#f85149")
+                # ── Resultado geral ───────────────────────────────────────
+                cor_total  = "#238636" if score_pct >= 70 else ("#f0883e" if score_pct >= 50 else "#f85149")
                 nota_score = (
                     "Ótima aderência — colaborador muito compatível com a vaga." if score_pct >= 70
-                    else "Aderência moderada — vale avaliar os critérios em laranja/vermelho." if score_pct >= 40
+                    else "Aderência moderada — vale avaliar os critérios em laranja/vermelho." if score_pct >= 50
                     else "Baixa aderência — o colaborador tem pouco em comum com essa vaga."
                 )
 
@@ -1153,8 +1281,6 @@ if file_vagas and file_colab:
 
                 st.markdown("### 💻 Conhecimentos Técnicos")
                 st.write(row.get("conocimientos tecnicos", "-"))
-
-
 
         # =========================
         # 📥 DOWNLOAD EXCEL
