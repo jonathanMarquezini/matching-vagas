@@ -1051,23 +1051,34 @@ if st.session_state.resultado_cache is not None:
     # =========================
     # 🔎 BUSCA POR NECESSIDADE
     # =========================
+
+    # Padrão de flag para limpar sem conflito com o widget
+    if "limpar_busca_flag" not in st.session_state:
+        st.session_state.limpar_busca_flag = False
+
+    if st.session_state.limpar_busca_flag:
+        st.session_state.limpar_busca_flag = False
+        st.session_state.busca_necesidad_val = ""
+
     col_busca, col_limpar = st.columns([5, 1])
+
+    with col_limpar:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🗑️ Limpar", key="limpar_busca"):
+            st.session_state.limpar_busca_flag = True
+            st.session_state.busca_necesidad_val = ""
 
     with col_busca:
         busca_necesidad = st.text_input(
             "🔍 Buscar vaga pelo número da necessidade",
             placeholder="Ex: 767648-01/26",
-            key="busca_necesidad"
+            value=st.session_state.get("busca_necesidad_val", ""),
+            key="busca_necesidad_input"
         )
-
-    with col_limpar:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🗑️ Limpar", key="limpar_busca"):
-            # Limpa apenas o campo — sem rerun que zeraria o sistema
-            st.session_state["busca_necesidad"] = ""
+        st.session_state.busca_necesidad_val = busca_necesidad
 
     # Define quais vagas exibir no detalhamento
-    busca_atual = st.session_state.get("busca_necesidad", "").strip()
+    busca_atual = busca_necesidad.strip()
     if busca_atual:
         vagas_detalhe = resultado[
             resultado["necesidad"].astype(str).str.contains(
