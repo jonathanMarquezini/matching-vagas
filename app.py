@@ -1055,18 +1055,24 @@ if st.session_state.resultado_cache is not None:
     if "busca_necesidad_val" not in st.session_state:
         st.session_state.busca_necesidad_val = ""
 
+    if "busca_input_key" not in st.session_state:
+        st.session_state.busca_input_key = 0
+
     col_busca, col_limpar = st.columns([5, 1])
 
     with col_busca:
-        st.session_state.busca_necesidad_val = st.text_input(
+        busca_necesidad = st.text_input(
             "🔍 Buscar vaga pelo número da necessidade",
             placeholder="Ex: 767648-01/26",
-            value=st.session_state.busca_necesidad_val,
+            key=f"busca_necesidad_{st.session_state.busca_input_key}"
         )
+        st.session_state.busca_necesidad_val = busca_necesidad
 
     with col_limpar:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🗑️ Limpar", key="limpar_busca"):
+            # Incrementa a key — força Streamlit a recriar o widget do zero
+            st.session_state.busca_input_key += 1
             st.session_state.busca_necesidad_val = ""
             st.rerun()
 
