@@ -1019,7 +1019,7 @@ if st.session_state.resultado_cache is not None:
 # 📊 TABELA PRINCIPAL
 # =========================
 st.dataframe(
-    st.session_state.resultado_cache[st.session_state.colunas_cache],
+    resultado[colunas_exibir],
     use_container_width=True,
     height=700
 )
@@ -1323,7 +1323,7 @@ for idx, row in vagas_detalhe.iterrows():
 # =========================
 # 📥 DOWNLOAD EXCEL
 # =========================
-excel_file = gerar_excel(st.session_state.resultado_cache[st.session_state.colunas_cache])
+excel_file = gerar_excel(resultado[colunas_exibir])
 
 st.download_button(
     label="📥 Baixar Resultado em Excel",
