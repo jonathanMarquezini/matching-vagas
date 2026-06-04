@@ -744,15 +744,41 @@ if file_vagas and file_colab:
                 # vagas de áreas próximas. Ex: UX → passa Frontend.
                 # Mas bloqueia áreas completamente diferentes.
                 # Ex: UX → não passa DBA, SAP, DevOps.
-                if termos_expandidos:
+                if termos_expandidos and termos_cargo_filtro:
                     perfil_res = normalizar_cargo_filtro(
                         str(row.get("perfil solicitado resumido", ""))
                         + " " +
                         str(row.get("perfil profesional", ""))
                     )
-                    hits = sum(1 for t in termos_expandidos if t in perfil_res)
-                    if hits == 0:
-                        return False
+
+                    # Verifica hits nos termos ORIGINAIS do cargo (não expandidos)
+                    # Exige pelo menos 30% dos termos originais batendo
+                    # Ex: "Desenvolvedor RPA" → ["desenvolvedor", "rpa"]
+                    # → precisa de pelo menos 1 dos 2 termos específicos
+                    # → só "desenvolvedor" sem "rpa" não passa se cargo tiver 2+ termos
+                    hits_originais = sum(1 for t in termos_cargo_filtro if t in perfil_res)
+                    min_hits = max(1, round(len(termos_cargo_filtro) * 0.30))
+
+                    # Se cargo tem termos específicos de área (não genéricos),
+                    # exige que pelo menos um deles bata
+                    termos_genericos = {"analista", "desenvolvedor", "especialista",
+                                        "consultor", "coordenador", "gerente", "senior",
+                                        "pleno", "junior", "lead", "tecnico"}
+                    termos_especificos = [t for t in termos_cargo_filtro
+                                          if t not in termos_genericos and len(t) > 3]
+
+                    if termos_especificos:
+                        # Tem termos específicos de área (ex: "rpa", "java", "ux")
+                        # exige que pelo menos 1 deles bata
+                        hits_especificos = sum(1 for t in termos_especificos if t in perfil_res)
+                        # Também aceita via termos expandidos da área
+                        hits_expandidos  = sum(1 for t in termos_expandidos if t in perfil_res)
+                        if hits_especificos == 0 and hits_expandidos < 2:
+                            return False
+                    else:
+                        # Cargo só tem termos genéricos — usa hits mínimos
+                        if hits_originais < min_hits:
+                            return False
 
                 return True
 
