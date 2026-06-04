@@ -710,7 +710,7 @@ if file_vagas and file_colab:
 
             if nome_perfil:
                 cargo_norm = normalizar_cargo_filtro(nome_perfil)
-                termos_cargo_filtro = [t for t in cargo_norm.split() if len(t) > 3]
+                termos_cargo_filtro = [t for t in cargo_norm.split() if len(t) >= 2]
 
                 # Para cada termo do cargo, encontra o grupo de área
                 # e adiciona todos os termos daquele grupo
@@ -765,7 +765,7 @@ if file_vagas and file_colab:
                                         "consultor", "coordenador", "gerente", "senior",
                                         "pleno", "junior", "lead", "tecnico"}
                     termos_especificos = [t for t in termos_cargo_filtro
-                                          if t not in termos_genericos and len(t) > 3]
+                                          if t not in termos_genericos and len(t) >= 2]
 
                     if termos_especificos:
                         # Tem termos específicos de área (ex: "rpa", "java", "ux")
