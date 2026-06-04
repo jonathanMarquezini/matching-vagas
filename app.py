@@ -676,50 +676,103 @@ if file_vagas and file_colab:
             # à mesma área e podem ser intercambiáveis
             # =========================
             AREAS_RELACIONADAS = [
-                # Design / Produto
-                {"ux", "ui", "design", "produto", "frontend", "front", "usabilidade", "figma", "prototipo"},
+                # Design / UX / Produto
+                {"ux", "ui", "design", "produto", "frontend", "front", "usabilidade",
+                 "figma", "prototipo", "experiencia", "interface", "wireframe"},
                 # Desenvolvimento Frontend / Mobile
-                {"frontend", "front", "react", "angular", "vue", "mobile", "ios", "android", "flutter"},
+                {"frontend", "front", "react", "angular", "vue", "mobile", "ios",
+                 "android", "flutter", "web", "javascript", "typescript", "html", "css"},
                 # Desenvolvimento Backend
-                {"backend", "back", "java", "python", "node", "dotnet", "api", "microsservicos"},
+                {"backend", "back", "java", "python", "node", "dotnet", "net",
+                 "api", "microsservicos", "php", "ruby", "golang", "kotlin", "spring"},
                 # Fullstack
-                {"fullstack", "full", "frontend", "backend", "front", "back"},
-                # Dados / Analytics / BI
-                {"dados", "data", "analytics", "analista", "bi", "business", "intelligence", "sql", "dba", "banco", "database", "engenheiro"},
+                {"fullstack", "full", "frontend", "backend", "front", "back",
+                 "web", "react", "angular", "node", "java", "python"},
+                # Dados / Analytics / BI / ETL
+                {"dados", "data", "analytics", "bi", "business", "intelligence",
+                 "sql", "dba", "banco", "database", "engenheiro", "etl", "teradata",
+                 "powercenter", "informatica", "microstrategy", "datawarehouse", "dw",
+                 "bigdata", "spark", "hadoop", "databricks", "pipeline"},
+                # Oracle / Database
+                {"oracle", "sql", "plsql", "database", "dba", "banco", "teradata",
+                 "mysql", "postgres", "sqlserver"},
                 # DevOps / Infra / Cloud
-                {"devops", "infra", "cloud", "aws", "azure", "gcp", "kubernetes", "docker", "sre", "plataforma"},
+                {"devops", "infra", "cloud", "aws", "azure", "gcp", "kubernetes",
+                 "docker", "sre", "plataforma", "linux", "ansible", "terraform"},
                 # RPA / Automacao
-                {"rpa", "automacao", "automation", "uipath", "blueprism", "powerautomate"},
+                {"rpa", "automacao", "automation", "uipath", "blueprism",
+                 "powerautomate", "robotica"},
                 # Suporte / Service Desk
-                {"suporte", "support", "servicedesk", "helpdesk", "atendimento", "infraestrutura"},
-                # Gestao / PMO
-                {"pmo", "projeto", "gestao", "coordenador", "gerente", "manager", "scrum", "agil"},
+                {"suporte", "support", "servicedesk", "helpdesk", "atendimento",
+                 "infraestrutura", "sustentacao", "incidente"},
+                # Gestao / PMO / Scrum
+                {"pmo", "projeto", "gestao", "coordenacao", "coordenador", "gerente",
+                 "manager", "scrum", "agil", "master", "product", "owner", "lideranca"},
+                # Arquitetura de Solucoes / Sistemas
+                {"arquiteto", "arquitetura", "solucao", "sistemas", "solucoes",
+                 "enterprise", "microservicos", "integracao", "middleware"},
+                # Analista Funcional / Negócios / BA
+                {"funcional", "negocios", "negocio", "requisitos", "processos",
+                 "produto", "business", "analista", "analyst", "funcional",
+                 "levantamento", "mapeamento"},
                 # SAP
-                {"sap", "abap", "fiori", "hana", "erp"},
+                {"sap", "abap", "fiori", "hana", "erp", "s4hana"},
                 # Seguranca
-                {"seguranca", "security", "cyber", "pentest", "soc"},
+                {"seguranca", "security", "cyber", "pentest", "soc", "ciberseguranca"},
                 # Administrativo / RH
-                {"administrativo", "admin", "recursos", "humanos", "rh", "financeiro", "contabil"},
+                {"administrativo", "admin", "recursos", "humanos", "rh",
+                 "financeiro", "contabil", "backoffice"},
                 # Qualidade / Testes
-                {"qualidade", "teste", "quality", "qa", "automacao", "selenium"},
+                {"qualidade", "teste", "testes", "quality", "qa", "automacao",
+                 "selenium", "cypress", "jira", "testador"},
+                # .NET especifico
+                {"net", "dotnet", "csharp", "aspnet", "azure", "microsoft"},
+                # PHP / Web especifico
+                {"php", "laravel", "symfony", "web", "wordpress", "drupal"},
             ]
 
             # Expande os termos do cargo com termos das áreas relacionadas
             termos_cargo_filtro = []
             termos_expandidos   = set()
 
+            termos_genericos_global = {
+                "analista", "desenvolvedor", "especialista", "consultor",
+                "coordenador", "gerente", "manager", "senior", "pleno",
+                "junior", "lead", "tecnico", "engenheiro", "arquiteto"
+            }
+
             if nome_perfil:
                 cargo_norm = normalizar_cargo_filtro(nome_perfil)
                 termos_cargo_filtro = [t for t in cargo_norm.split() if len(t) >= 2]
 
                 # Para cada termo do cargo, encontra o grupo de área
-                # e adiciona todos os termos daquele grupo
                 for termo in termos_cargo_filtro:
                     for grupo in AREAS_RELACIONADAS:
                         if termo in grupo:
                             termos_expandidos.update(grupo)
 
-                # Se não achou grupo, usa só os termos originais
+                # Verifica se o cargo é genérico demais
+                # (só tem termos genéricos ou siglas curtas ambíguas)
+                termos_uteis_cargo = [
+                    t for t in termos_cargo_filtro
+                    if t not in termos_genericos_global and len(t) >= 2
+                ]
+                cargo_generico = len(termos_uteis_cargo) == 0
+
+                # Se cargo genérico, extrai termos relevantes da descrição
+                if cargo_generico and descricao_colab:
+                    desc_norm = normalizar_cargo_filtro(descricao_colab)
+                    desc_tokens = [t for t in desc_norm.split()
+                                   if len(t) >= 3 and t not in termos_genericos_global]
+
+                    # Filtra apenas tokens que aparecem em algum grupo de área
+                    for token in desc_tokens:
+                        for grupo in AREAS_RELACIONADAS:
+                            if token in grupo:
+                                termos_expandidos.update(grupo)
+                                termos_cargo_filtro.append(token)
+
+                # Se ainda não achou grupo, usa termos originais
                 if not termos_expandidos:
                     termos_expandidos = set(termos_cargo_filtro)
 
