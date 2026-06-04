@@ -356,12 +356,6 @@ def gerar_excel(df):
 # =========================
 # 🕓 INICIALIZAR HISTÓRICO
 # =========================
-if "historico" not in st.session_state:
-    st.session_state.historico = []
-
-if "historico_selecionado" not in st.session_state:
-    st.session_state.historico_selecionado = None
-
 if "resultado_cache" not in st.session_state:
     st.session_state.resultado_cache = None
 
@@ -376,80 +370,6 @@ if "texto_cv_cache" not in st.session_state:
 
 if "col_obs_cache" not in st.session_state:
     st.session_state.col_obs_cache = None
-
-# =========================
-# 🕓 PAINEL DE HISTÓRICO
-# =========================
-if st.session_state.historico:
-
-    with st.expander(f"🕓 Histórico da sessão — {len(st.session_state.historico)} análise(s) realizada(s)", expanded=False):
-
-        for h in st.session_state.historico:
-
-            col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns([3, 1, 1, 1, 1])
-
-            with col_h1:
-                st.markdown(f"**{h['colaborador']}**")
-                st.caption(h['data_hora'])
-
-            with col_h2:
-                st.metric("Vagas", h['vagas'])
-
-            with col_h3:
-                st.metric("Score médio", f"{h['score_medio']}%")
-
-            with col_h4:
-                st.metric("CV", "✅" if h['cv_usado'] else "❌")
-
-            with col_h5:
-                if st.button("🔍 Ver", key=f"hist_{h['colaborador']}_{h['data_hora']}"):
-                    st.session_state.historico_selecionado = h
-
-            st.divider()
-
-# =========================
-# 📊 EXIBIR ANÁLISE DO HISTÓRICO
-# =========================
-if st.session_state.historico_selecionado:
-
-    h = st.session_state.historico_selecionado
-
-    st.markdown(
-        f"""
-        <div style="
-            background: linear-gradient(135deg, #1c2330 0%, #161b22 100%);
-            border: 1px solid #6e40c955;
-            border-left: 4px solid #6e40c9;
-            border-radius: 12px;
-            padding: 18px 24px;
-            margin-bottom: 20px;
-        ">
-            <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">📂 Análise do histórico — {h['data_hora']}</div>
-            <div style="color:#e6edf3; font-size:22px; font-weight:700;">
-                🕓 Última análise de <span style="color:#a371f7;">{h['colaborador']}</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    col_h1, col_h2, col_h3 = st.columns(3)
-    with col_h1:
-        st.metric("Vagas encontradas", h['vagas'])
-    with col_h2:
-        st.metric("Score médio", f"{h['score_medio']}%")
-    with col_h3:
-        st.metric("CV utilizado no match", "✅ Sim" if h['cv_usado'] else "❌ Não")
-
-    if h.get("colunas") and h.get("resultado") is not None:
-        colunas_hist = [c for c in h["colunas"] if c in h["resultado"].columns]
-        st.dataframe(h["resultado"][colunas_hist], use_container_width=True, height=500)
-
-    if st.button("✖️ Fechar histórico"):
-        st.session_state.historico_selecionado = None
-        st.rerun()
-
-    st.divider()
 
 # =========================
 # 📂 UPLOAD BASES
@@ -895,28 +815,7 @@ if file_vagas and file_colab:
         resultado = vagas_filtradas.sort_values("match", ascending=False)
         resultado = resultado[resultado["match"] >= 0.50]
 
-        # =========================
-        # 🕓 SALVAR NO HISTÓRICO
-        # =========================
-        import datetime
-
         score_medio = round(resultado["match"].mean() * 100, 1) if len(resultado) > 0 else 0
-
-        entrada_historico = {
-            "colaborador": selecionado,
-            "data_hora":   datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
-            "score_medio": score_medio,
-            "vagas":       len(resultado),
-            "resultado":   resultado,
-            "colunas":     None,
-            "cv_usado":    bool(texto_cv.strip()),
-        }
-
-        st.session_state.historico = [
-            h for h in st.session_state.historico
-            if h["colaborador"] != selecionado
-        ]
-        st.session_state.historico.insert(0, entrada_historico)
 
         # =========================
         # ⚠️ NENHUMA VAGA >= 50%
@@ -989,9 +888,6 @@ if file_vagas and file_colab:
             c for c in colunas_exibir
             if c in resultado.columns
         ]
-
-        # Salva colunas no histórico
-        st.session_state.historico[0]["colunas"] = colunas_exibir
 
         # Persiste resultado e contexto no session_state
         # para sobreviver ao rerun da busca por necessidade
