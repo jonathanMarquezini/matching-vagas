@@ -762,10 +762,32 @@ if file_vagas and file_colab:
 
             # =========================
             # ❌ SEM RESULTADO
+            # Se não encontrou com todos os filtros,
+            # relaxa apenas o filtro de cargo/área
+            # mas mantém Rol e Taxa obrigatórios
             # =========================
             if len(vagas_filtradas) == 0:
-                st.warning("Nenhuma vaga compatível encontrada. Verifique se o cargo do colaborador está preenchido na base.")
-                vagas_filtradas = vagas.copy()
+
+                def filtro_vaga_relaxado(row):
+                    if coluna_rol_colab and coluna_rol_vaga:
+                        if not rol_compativel(
+                            perfil_row.get(coluna_rol_colab),
+                            row.get(coluna_rol_vaga)
+                        ):
+                            return False
+                    if coluna_taxa_vaga:
+                        taxa_max = tratar_taxa(row.get(coluna_taxa_vaga))
+                        if taxa_max > 0 and taxa_colab > taxa_max:
+                            return False
+                    return True
+
+                vagas_filtradas = vagas[
+                    vagas.apply(filtro_vaga_relaxado, axis=1)
+                ].copy()
+
+                if len(vagas_filtradas) == 0:
+                    st.warning("Nenhuma vaga compatível encontrada para este colaborador.")
+                    st.stop()
 
             # =========================
             # 🧠 IA MATCH — TF-IDF
