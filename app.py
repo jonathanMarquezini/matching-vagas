@@ -662,8 +662,24 @@ if file_vagas and file_colab:
 
         with st.spinner("🔍 Calculando compatibilidade das vagas..."):
 
+            # Pré-calcula termos do cargo para o filtro de área
+            def normalizar_cargo_filtro(texto):
+                t = limpar_texto(texto)
+                t = re.sub(r"full\s+stack", "fullstack", t)
+                t = re.sub(r"front\s+end",  "frontend",  t)
+                t = re.sub(r"back\s+end",   "backend",   t)
+                return t
+
+            termos_cargo_filtro = []
+            if nome_perfil:
+                termos_cargo_filtro = [
+                    t for t in normalizar_cargo_filtro(nome_perfil).split()
+                    if len(t) > 3
+                ]
+
             def filtro_vaga(row):
 
+                # ── Filtro de Rol ────────────────────────────────────────
                 if coluna_rol_colab and coluna_rol_vaga:
                     if not rol_compativel(
                         perfil_row.get(coluna_rol_colab),
@@ -671,9 +687,25 @@ if file_vagas and file_colab:
                     ):
                         return False
 
+                # ── Filtro de Taxa ───────────────────────────────────────
                 if coluna_taxa_vaga:
                     taxa_max = tratar_taxa(row.get(coluna_taxa_vaga))
                     if taxa_max > 0 and taxa_colab > taxa_max:
+                        return False
+
+                # ── Filtro de Área / Cargo ───────────────────────────────
+                # Pelo menos 1 termo do cargo do colaborador precisa
+                # aparecer no perfil solicitado resumido ou perfil
+                # profissional da vaga. Evita que áreas completamente
+                # diferentes passem apenas por ter o mesmo Rol e Taxa.
+                if termos_cargo_filtro:
+                    perfil_res = normalizar_cargo_filtro(
+                        str(row.get("perfil solicitado resumido", ""))
+                        + " " +
+                        str(row.get("perfil profesional", ""))
+                    )
+                    hits = sum(1 for t in termos_cargo_filtro if t in perfil_res)
+                    if hits == 0:
                         return False
 
                 return True
@@ -686,7 +718,7 @@ if file_vagas and file_colab:
             # ❌ SEM RESULTADO
             # =========================
             if len(vagas_filtradas) == 0:
-                st.warning("Nenhuma vaga compatível com os filtros de Rol/Taxa. Exibindo todas as vagas ranqueadas por match.")
+                st.warning("Nenhuma vaga compatível encontrada. Verifique se o cargo do colaborador está preenchido na base.")
                 vagas_filtradas = vagas.copy()
 
             # =========================
