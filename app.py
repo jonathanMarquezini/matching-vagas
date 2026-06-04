@@ -662,20 +662,66 @@ if file_vagas and file_colab:
 
         with st.spinner("🔍 Calculando compatibilidade das vagas..."):
 
-            # Pré-calcula termos do cargo para o filtro de área
+            # Normaliza variações comuns de cargo
             def normalizar_cargo_filtro(texto):
                 t = limpar_texto(texto)
-                t = re.sub(r"full\s+stack", "fullstack", t)
-                t = re.sub(r"front\s+end",  "frontend",  t)
-                t = re.sub(r"back\s+end",   "backend",   t)
+                t = t.replace("full stack", "fullstack")
+                t = t.replace("front end", "frontend")
+                t = t.replace("back end",  "backend")
                 return t
 
+            # =========================
+            # 🗺️ MAPA DE ÁREAS RELACIONADAS
+            # Cada grupo define cargos que pertencem
+            # à mesma área e podem ser intercambiáveis
+            # =========================
+            AREAS_RELACIONADAS = [
+                # Design / Produto
+                {"ux", "ui", "design", "produto", "frontend", "front", "usabilidade", "figma", "prototipo"},
+                # Desenvolvimento Frontend / Mobile
+                {"frontend", "front", "react", "angular", "vue", "mobile", "ios", "android", "flutter"},
+                # Desenvolvimento Backend
+                {"backend", "back", "java", "python", "node", "dotnet", "api", "microsservicos"},
+                # Fullstack
+                {"fullstack", "full", "frontend", "backend", "front", "back"},
+                # Dados / Analytics / BI
+                {"dados", "data", "analytics", "analista", "bi", "business", "intelligence", "sql", "dba", "banco", "database", "engenheiro"},
+                # DevOps / Infra / Cloud
+                {"devops", "infra", "cloud", "aws", "azure", "gcp", "kubernetes", "docker", "sre", "plataforma"},
+                # RPA / Automacao
+                {"rpa", "automacao", "automation", "uipath", "blueprism", "powerautomate"},
+                # Suporte / Service Desk
+                {"suporte", "support", "servicedesk", "helpdesk", "atendimento", "infraestrutura"},
+                # Gestao / PMO
+                {"pmo", "projeto", "gestao", "coordenador", "gerente", "manager", "scrum", "agil"},
+                # SAP
+                {"sap", "abap", "fiori", "hana", "erp"},
+                # Seguranca
+                {"seguranca", "security", "cyber", "pentest", "soc"},
+                # Administrativo / RH
+                {"administrativo", "admin", "recursos", "humanos", "rh", "financeiro", "contabil"},
+                # Qualidade / Testes
+                {"qualidade", "teste", "quality", "qa", "automacao", "selenium"},
+            ]
+
+            # Expande os termos do cargo com termos das áreas relacionadas
             termos_cargo_filtro = []
+            termos_expandidos   = set()
+
             if nome_perfil:
-                termos_cargo_filtro = [
-                    t for t in normalizar_cargo_filtro(nome_perfil).split()
-                    if len(t) > 3
-                ]
+                cargo_norm = normalizar_cargo_filtro(nome_perfil)
+                termos_cargo_filtro = [t for t in cargo_norm.split() if len(t) > 3]
+
+                # Para cada termo do cargo, encontra o grupo de área
+                # e adiciona todos os termos daquele grupo
+                for termo in termos_cargo_filtro:
+                    for grupo in AREAS_RELACIONADAS:
+                        if termo in grupo:
+                            termos_expandidos.update(grupo)
+
+                # Se não achou grupo, usa só os termos originais
+                if not termos_expandidos:
+                    termos_expandidos = set(termos_cargo_filtro)
 
             def filtro_vaga(row):
 
@@ -694,17 +740,17 @@ if file_vagas and file_colab:
                         return False
 
                 # ── Filtro de Área / Cargo ───────────────────────────────
-                # Pelo menos 1 termo do cargo do colaborador precisa
-                # aparecer no perfil solicitado resumido ou perfil
-                # profissional da vaga. Evita que áreas completamente
-                # diferentes passem apenas por ter o mesmo Rol e Taxa.
-                if termos_cargo_filtro:
+                # Usa os termos expandidos (área relacionada) para permitir
+                # vagas de áreas próximas. Ex: UX → passa Frontend.
+                # Mas bloqueia áreas completamente diferentes.
+                # Ex: UX → não passa DBA, SAP, DevOps.
+                if termos_expandidos:
                     perfil_res = normalizar_cargo_filtro(
                         str(row.get("perfil solicitado resumido", ""))
                         + " " +
                         str(row.get("perfil profesional", ""))
                     )
-                    hits = sum(1 for t in termos_cargo_filtro if t in perfil_res)
+                    hits = sum(1 for t in termos_expandidos if t in perfil_res)
                     if hits == 0:
                         return False
 
@@ -844,17 +890,21 @@ if file_vagas and file_colab:
         # 📊 RESULTADO
         # Filtro: apenas vagas com score >= 50%
         # =========================
-        resultado = vagas_filtradas.sort_values("match", ascending=False)
-        resultado = resultado[resultado["match"] >= 0.50]
+        resultado_ordenado = vagas_filtradas.sort_values("match", ascending=False)
+        resultado_50       = resultado_ordenado[resultado_ordenado["match"] >= 0.50]
+
+        # Se nenhuma vaga atingir 50%, exibe todas com aviso
+        sem_vaga_50 = len(resultado_50) == 0
+        resultado   = resultado_50 if not sem_vaga_50 else resultado_ordenado
 
         score_medio = round(resultado["match"].mean() * 100, 1) if len(resultado) > 0 else 0
 
         # =========================
-        # ⚠️ NENHUMA VAGA >= 50%
+        # ⚠️ NENHUMA VAGA DISPONÍVEL
         # =========================
         if len(resultado) == 0:
             st.warning(
-                "Nenhuma vaga com score igual ou superior a 50% foi encontrada para este colaborador. "
+                "Nenhuma vaga compatível encontrada para este colaborador. "
                 "Tente anexar o CV ou verifique se o perfil está preenchido na base."
             )
             st.stop()
@@ -872,7 +922,7 @@ if file_vagas and file_colab:
                 padding: 18px 24px;
                 margin-bottom: 20px;
             ">
-                <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">Resultado da análise — apenas vagas com score ≥ 50%</div>
+                <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">{"⚠️ Nenhuma vaga com score ≥ 50% encontrada — exibindo todas as vagas disponíveis" if sem_vaga_50 else "Resultado da análise — apenas vagas com score ≥ 50%"}</div>
                 <div style="color:#e6edf3; font-size:22px; font-weight:700;">
                     🎯 Vagas compatíveis para <span style="color:#388bfd;">{selecionado}</span>
                 </div>
