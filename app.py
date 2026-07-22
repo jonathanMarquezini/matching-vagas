@@ -445,8 +445,7 @@ if file_vagas and file_colab:
         if pd.isna(texto) or str(texto).strip() == "":
             return "-"
         texto = str(texto)
-        # Captura tudo a partir de "Híbrido:" até o fim do texto
-        match = re.search(r"(?i)h[ií]brido\s*:(.*)", texto, re.DOTALL)
+        match = re.search(r"(?i)(?:outros|otros)\s*:\s*(.+)", texto, re.DOTALL)
         if match:
             return match.group(1).strip()
         return "-"
