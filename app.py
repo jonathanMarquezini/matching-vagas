@@ -869,12 +869,23 @@ if file_vagas and file_colab:
                             "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
                             "Ranking Match": rank,
                             "Match Score (%)": round(vaga_row["match"] * 100, 2),
-                            "Projeto Vaga": vaga_row.get("proyecto", "-"),
-                            "Necessidade Vaga": vaga_row.get("necesidad", "-"),
-                            "Solicitante Vaga": vaga_row.get("solicitante", "-"),
-                            "Rol Vaga": vaga_row.get("rol reporting", "-"),
-                            "Taxa Máx Vaga": vaga_row.get("tasa máxima deseable", "-"),
-                            "Perfil Resumido Vaga": vaga_row.get("perfil solicitado resumido", "-"),
+                            
+                            # Todas as colunas completas da Vaga trazidas da validação individual:
+                            "Proyecto": vaga_row.get("proyecto", "-"),
+                            "Solicitante": vaga_row.get("solicitante", "-"),
+                            "Necesidad": vaga_row.get("necesidad", "-"),
+                            "Estado Necesidad": vaga_row.get("estado necesidad", "-"),
+                            "Rol Reporting": vaga_row.get("rol reporting", "-"),
+                            "Tasa Máxima Deseable": vaga_row.get("tasa máxima deseable", "-"),
+                            "Perfil Profesional": vaga_row.get("perfil profesional", "-"),
+                            "Perfil Solicitado Resumido": vaga_row.get("perfil solicitado resumido", "-"),
+                            "Lugar de Trabajo": vaga_row.get("lugar de trabajo", "-"),
+                            "Lugar de Trabajo Definitivo": vaga_row.get("lugar de trabajo definitivo", "-"),
+                            "Perfil Solicitado Detallado": vaga_row.get("perfil solicitado detallado", "-"),
+                            "Conocimientos Funcionales": vaga_row.get("conocimientos funcionales", "-"),
+                            "Conocimientos Tecnicos": vaga_row.get("conocimientos tecnicos", "-"),
+                            "Observaciones Necesidad": vaga_row.get(col_obs, "-") if col_obs else vaga_row.get("observaciones necesidad", "-"),
+                            "Outros": vaga_row.get("outros", "-")
                         }
                         lista_resultados.append(registro)
 
