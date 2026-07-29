@@ -411,6 +411,12 @@ if file_vagas and file_colab:
     colab.columns = colab.columns.str.strip().str.lower()
 
     # =========================
+    # 🔁 REMOVER DUPLICADAS
+    # =========================
+    if "necesidad" in vagas.columns:
+        vagas = vagas.drop_duplicates(subset=["necesidad"])
+
+    # =========================
     # 🧠 TEXTO DA VAGA
     # =========================
     vagas["texto"] = (
@@ -428,24 +434,25 @@ if file_vagas and file_colab:
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
     # =========================
-    # 🔧 EXTRAIR CAMPO "Outros"
+    # 🔧 EXTRAIR CAMPO A PARTIR DE "Híbrido" (ou Hibrido)
     # de Observaciones Necesidad
     # =========================
     col_obs = next((c for c in vagas.columns if "observaciones" in c and "necesidad" in c), None)
     if col_obs is None:
         col_obs = next((c for c in vagas.columns if "observaciones" in c), None)
 
-    def extrair_outros(texto):
+    def extrair_hibrido(texto):
         if pd.isna(texto) or str(texto).strip() == "":
             return "-"
-        texto = str(texto)
-        match = re.search(r"(?i)(?:outros|otros)\s*:\s*(.+)", texto, re.DOTALL)
+        texto_str = str(texto)
+        # Procura por "Híbrido" ou "Hibrido" e captura todo o texto a partir dele
+        match = re.search(r"(?i)(h[íi]brido\s*[:\-]?\s*.+)", texto_str, re.DOTALL)
         if match:
             return match.group(1).strip()
         return "-"
 
     if col_obs:
-        vagas["outros"] = vagas[col_obs].apply(extrair_outros)
+        vagas["outros"] = vagas[col_obs].apply(extrair_hibrido)
     else:
         vagas["outros"] = "-"
 
@@ -746,7 +753,6 @@ if file_vagas and file_colab:
                             termos_expandidos.update(grupo)
 
                 # Verifica se o cargo é genérico demais
-                # (só tem termos genéricos ou siglas curtas ambíguas)
                 termos_uteis_cargo = [
                     t for t in termos_cargo_filtro
                     if t not in termos_genericos_global and len(t) >= 2
@@ -759,14 +765,12 @@ if file_vagas and file_colab:
                     desc_tokens = [t for t in desc_norm.split()
                                    if len(t) >= 3 and t not in termos_genericos_global]
 
-                    # Filtra apenas tokens que aparecem em algum grupo de área
                     for token in desc_tokens:
                         for grupo in AREAS_RELACIONADAS:
                             if token in grupo:
                                 termos_expandidos.update(grupo)
                                 termos_cargo_filtro.append(token)
 
-                # Se ainda não achou grupo, usa termos originais
                 if not termos_expandidos:
                     termos_expandidos = set(termos_cargo_filtro)
 
@@ -787,10 +791,6 @@ if file_vagas and file_colab:
                         return False
 
                 # ── Filtro de Área / Cargo ───────────────────────────────
-                # Usa os termos expandidos (área relacionada) para permitir
-                # vagas de áreas próximas. Ex: UX → passa Frontend.
-                # Mas bloqueia áreas completamente diferentes.
-                # Ex: UX → não passa DBA, SAP, DevOps.
                 if termos_expandidos and termos_cargo_filtro:
                     perfil_res = normalizar_cargo_filtro(
                         str(row.get("perfil solicitado resumido", ""))
@@ -798,16 +798,9 @@ if file_vagas and file_colab:
                         str(row.get("perfil profesional", ""))
                     )
 
-                    # Verifica hits nos termos ORIGINAIS do cargo (não expandidos)
-                    # Exige pelo menos 30% dos termos originais batendo
-                    # Ex: "Desenvolvedor RPA" → ["desenvolvedor", "rpa"]
-                    # → precisa de pelo menos 1 dos 2 termos específicos
-                    # → só "desenvolvedor" sem "rpa" não passa se cargo tiver 2+ termos
                     hits_originais = sum(1 for t in termos_cargo_filtro if t in perfil_res)
                     min_hits = max(1, round(len(termos_cargo_filtro) * 0.30))
 
-                    # Se cargo tem termos específicos de área (não genéricos),
-                    # exige que pelo menos um deles bata
                     termos_genericos = {"analista", "desenvolvedor", "especialista",
                                         "consultor", "coordenador", "gerente", "senior",
                                         "pleno", "junior", "lead", "tecnico"}
@@ -815,15 +808,11 @@ if file_vagas and file_colab:
                                           if t not in termos_genericos and len(t) >= 2]
 
                     if termos_especificos:
-                        # Tem termos específicos de área (ex: "rpa", "java", "ux")
-                        # exige que pelo menos 1 deles bata
                         hits_especificos = sum(1 for t in termos_especificos if t in perfil_res)
-                        # Também aceita via termos expandidos da área
                         hits_expandidos  = sum(1 for t in termos_expandidos if t in perfil_res)
                         if hits_especificos == 0 and hits_expandidos < 2:
                             return False
                     else:
-                        # Cargo só tem termos genéricos — usa hits mínimos
                         if hits_originais < min_hits:
                             return False
 
@@ -835,9 +824,6 @@ if file_vagas and file_colab:
 
             # =========================
             # ❌ SEM RESULTADO
-            # Se não encontrou com todos os filtros,
-            # relaxa apenas o filtro de cargo/área
-            # mas mantém Rol e Taxa obrigatórios
             # =========================
             if len(vagas_filtradas) == 0:
 
@@ -878,7 +864,7 @@ if file_vagas and file_colab:
             )[0]
 
             # =========================
-            # ⚖️ PESOS BASE — média ponderada
+            # ⚖️ PESOS BASE
             # =========================
             PESO_TFIDF = 0.40
             PESO_CARGO = 0.25
@@ -886,10 +872,8 @@ if file_vagas and file_colab:
             PESO_TAXA  = 0.10
             PESO_CV    = 0.10
 
-            # Verifica se colaborador tem perfil suficiente para TF-IDF
             tem_perfil_suficiente = len(perfil_texto.split()) >= 10
 
-            # Pré-processa termos do cargo — normaliza variações comuns
             def normalizar_cargo(texto):
                 t = limpar_texto(texto)
                 t = re.sub(r"full\s+stack", "fullstack", t)
@@ -911,10 +895,8 @@ if file_vagas and file_colab:
 
                 row_vaga_i = vagas_filtradas.iloc[i]
 
-                # ── 1. TFIDF ────────────────────────────────────────────
                 score_tfidf = scores[i]
 
-                # ── 2. CARGO ─────────────────────────────────────────────
                 perfil_resumido = normalizar_cargo(str(row_vaga_i.get("perfil solicitado resumido", "")))
 
                 if termos_cargo and perfil_resumido:
@@ -925,12 +907,10 @@ if file_vagas and file_colab:
                 else:
                     score_cargo = 0.0
 
-                # ── 3. ROL ───────────────────────────────────────────────
                 rol_c = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
                 rol_v = str(row_vaga_i.get(coluna_rol_vaga,  "")) if coluna_rol_vaga  else ""
                 score_rol = 1.0 if rol_compativel(rol_c, rol_v) else 0.0
 
-                # ── 4. TAXA ──────────────────────────────────────────────
                 taxa_c_loop = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
                 taxa_v_loop = tratar_taxa(row_vaga_i.get(coluna_taxa_vaga))  if coluna_taxa_vaga  else 0
 
@@ -939,10 +919,8 @@ if file_vagas and file_colab:
                 else:
                     score_taxa = 0.0
 
-                # ── 5. CV ────────────────────────────────────────────────
                 score_cv = 1.0 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
 
-                # ── PESOS DINÂMICOS ──────────────────────────────────────
                 if tem_perfil_suficiente:
                     p_tfidf = PESO_TFIDF
                     p_cargo = PESO_CARGO
@@ -957,7 +935,6 @@ if file_vagas and file_colab:
                     p_taxa  = PESO_TAXA  + extra
                     p_cv    = PESO_CV
 
-                # ── SCORE FINAL ──────────────────────────────────────────
                 score_final = (
                     score_tfidf * p_tfidf +
                     score_cargo * p_cargo +
@@ -983,20 +960,15 @@ if file_vagas and file_colab:
 
         # =========================
         # 📊 RESULTADO
-        # Filtro: apenas vagas com score >= 50%
         # =========================
         resultado_ordenado = vagas_filtradas.sort_values("match", ascending=False)
         resultado_50       = resultado_ordenado[resultado_ordenado["match"] >= 0.50]
 
-        # Se nenhuma vaga atingir 50%, exibe todas com aviso
         sem_vaga_50 = len(resultado_50) == 0
         resultado   = resultado_50 if not sem_vaga_50 else resultado_ordenado
 
         score_medio = round(resultado["match"].mean() * 100, 1) if len(resultado) > 0 else 0
 
-        # =========================
-        # ⚠️ NENHUMA VAGA DISPONÍVEL
-        # =========================
         if len(resultado) == 0:
             st.warning(
                 "Nenhuma vaga compatível encontrada para este colaborador. "
@@ -1048,8 +1020,8 @@ if file_vagas and file_colab:
             "match",
             "perfil profesional",
             "perfil solicitado resumido",
-            "lugar de trabalho",
-            "lugar de trabalho definitivo",
+            "lugar de trabajo",
+            "lugar de trabajo definitivo",
             "perfil solicitado detallado",
             "conocimientos funcionales",
             "conocimientos tecnicos",
@@ -1057,7 +1029,6 @@ if file_vagas and file_colab:
             "outros"
         ]
 
-        # garante que "observaciones necesidad" aponte para a coluna real
         if col_obs and col_obs not in colunas_exibir:
             colunas_exibir = [col_obs if c == "observaciones necesidad" else c for c in colunas_exibir]
 
@@ -1066,19 +1037,14 @@ if file_vagas and file_colab:
             if c in resultado.columns
         ]
 
-        # Persiste resultado e contexto no session_state
-        # para sobreviver ao rerun da busca por necessidade
         st.session_state.resultado_cache   = resultado
         st.session_state.colunas_cache     = colunas_exibir
         st.session_state.selecionado_cache = selecionado
         st.session_state.texto_cv_cache    = texto_cv
         st.session_state.col_obs_cache     = col_obs
 
-        # =========================
-
 # =========================
 # 📊 EXIBIÇÃO — lê do session_state
-# Persiste mesmo após rerun do campo de busca
 # =========================
 if st.session_state.resultado_cache is not None:
 
@@ -1089,8 +1055,6 @@ if st.session_state.resultado_cache is not None:
     col_obs        = st.session_state.col_obs_cache
     texto_cv_limpo = limpar_texto(texto_cv)
 
-    # 📊 TABELA PRINCIPAL
-    # =========================
     st.dataframe(
         resultado[colunas_exibir],
         use_container_width=True,
@@ -1124,7 +1088,6 @@ if st.session_state.resultado_cache is not None:
     # =========================
     # 🔎 BUSCA POR NECESSIDADE
     # =========================
-
     if "busca_necesidad_val" not in st.session_state:
         st.session_state.busca_necesidad_val = ""
 
@@ -1144,12 +1107,10 @@ if st.session_state.resultado_cache is not None:
     with col_limpar:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🗑️ Limpar", key="limpar_busca"):
-            # Incrementa a key — força Streamlit a recriar o widget do zero
             st.session_state.busca_input_key += 1
             st.session_state.busca_necesidad_val = ""
             st.rerun()
 
-    # Define quais vagas exibir no detalhamento
     busca_atual = st.session_state.busca_necesidad_val.strip()
     if busca_atual:
         vagas_detalhe = resultado[
@@ -1161,7 +1122,6 @@ if st.session_state.resultado_cache is not None:
             st.warning(f"Nenhuma vaga encontrada com a necessidade '{busca_atual}'.")
             vagas_detalhe = resultado.head(1)
     else:
-        # Sem busca — mostra apenas o Top 1
         vagas_detalhe = resultado.head(1)
 
     # =========================
@@ -1211,7 +1171,6 @@ if st.session_state.resultado_cache is not None:
                 unsafe_allow_html=True
             )
 
-            # ── helpers visuais ─────────────────────────────────────
             def _barra(pct, cor):
                 pct_clip = min(pct, 100)
                 return (
@@ -1255,7 +1214,6 @@ if st.session_state.resultado_cache is not None:
                     f"</div>"
                 )
 
-            # ── recupera breakdown real ──────────────────────────────
             bd = row.get("_breakdown", {
                 "tfidf": 0, "cargo": 0, "rol": 0,
                 "taxa": 0, "cv": 0, "total": row["match"]
@@ -1269,7 +1227,6 @@ if st.session_state.resultado_cache is not None:
             p_cv     = round(bd["cv"]    * 100, 1)
             p_taxa   = round(bd["taxa"]  * 100, 1)
 
-            # ── informações de contexto ──────────────────────────────
             rol_colab_val   = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
             rol_vaga_val    = str(row.get(coluna_rol_vaga, ""))         if coluna_rol_vaga  else ""
             rol_ok          = rol_compativel(rol_colab_val, rol_vaga_val)
@@ -1285,7 +1242,7 @@ if st.session_state.resultado_cache is not None:
 
             cv_presente = texto_cv_limpo.strip() != ""
 
-            # ── CRITÉRIO 1 — SKILLS TÉCNICAS ────────────────────────
+            # ── 1. SKILLS TÉCNICAS ──────────────────────────────────
             tfidf_ok       = p_tfidf >= (score_pct * 0.4)
             breakdown_html = _linha(
                 "As skills técnicas combinam com a vaga?",
@@ -1296,7 +1253,7 @@ if st.session_state.resultado_cache is not None:
                 tfidf_ok, ""
             )
 
-            # ── CRITÉRIO 2 — CARGO ──────────────────────────────────
+            # ── 2. CARGO ────────────────────────────────────────────
             cargo_ok   = p_cargo > 0
             faltou_cargo = "" if cargo_ok else (
                 f"O cargo '{nome_perfil_val}' não foi encontrado nos requisitos da vaga."
@@ -1310,7 +1267,7 @@ if st.session_state.resultado_cache is not None:
                 cargo_ok, faltou_cargo
             )
 
-            # ── CRITÉRIO 3 — ROL ────────────────────────────────────
+            # ── 3. ROL ──────────────────────────────────────────────
             faltou_rol_nivel = "" if rol_ok else (
                 f"A vaga exige o nível '{rol_vaga_val or '—'}', mas o colaborador é '{rol_colab_val or '—'}'. Os níveis precisam ser iguais para pontuar."
             )
@@ -1324,7 +1281,7 @@ if st.session_state.resultado_cache is not None:
                 rol_ok, faltou_rol_nivel
             )
 
-            # ── CRITÉRIO 4 — TAXA ────────────────────────────────────
+            # ── 4. TAXA ─────────────────────────────────────────────
             if not taxa_c and not taxa_v:
                 faltou_taxa = ""
             elif taxa_ok:
@@ -1342,7 +1299,7 @@ if st.session_state.resultado_cache is not None:
                 taxa_ok, faltou_taxa
             )
 
-            # ── CRITÉRIO 5 — CV ──────────────────────────────────────
+            # ── 5. CV ───────────────────────────────────────────────
             cv_ok     = cv_presente and p_cv > 0
             faltou_cv = (
                 "" if cv_ok
@@ -1360,7 +1317,6 @@ if st.session_state.resultado_cache is not None:
                 cv_ok, faltou_cv
             )
 
-            # ── Resultado geral ───────────────────────────────────────
             cor_total  = "#238636" if score_pct >= 70 else ("#f0883e" if score_pct >= 50 else "#f85149")
             nota_score = (
                 "Ótima aderência — colaborador muito compatível com a vaga." if score_pct >= 70
@@ -1415,8 +1371,7 @@ if st.session_state.resultado_cache is not None:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-    # =========================
-
+# =========================
 # 🧾 FOOTER
 # =========================
 st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>💼 Matching Inteligente de Vagas • v4.5</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> • UGR Brasil</div></div></div>", unsafe_allow_html=True)
