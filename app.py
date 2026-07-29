@@ -163,6 +163,44 @@ with col2:
 
 st.divider()
 
+AREAS_RELACIONADAS = [
+    {"ux", "ui", "design", "produto", "frontend", "front", "usabilidade",
+     "figma", "prototipo", "experiencia", "interface", "wireframe"},
+    {"frontend", "front", "react", "angular", "vue", "mobile", "ios",
+     "android", "flutter", "web", "javascript", "typescript", "html", "css"},
+    {"backend", "back", "java", "python", "node", "dotnet", "net",
+     "api", "microsservicos", "php", "ruby", "golang", "kotlin", "spring"},
+    {"fullstack", "full", "frontend", "backend", "front", "back",
+     "web", "react", "angular", "node", "java", "python"},
+    {"dados", "data", "analytics", "bi", "business", "intelligence",
+     "sql", "dba", "banco", "database", "engenheiro", "etl", "teradata",
+     "powercenter", "informatica", "microstrategy", "datawarehouse", "dw",
+     "bigdata", "spark", "hadoop", "databricks", "pipeline"},
+    {"oracle", "sql", "plsql", "database", "dba", "banco", "teradata",
+     "mysql", "postgres", "sqlserver"},
+    {"devops", "infra", "cloud", "aws", "azure", "gcp", "kubernetes",
+     "docker", "sre", "plataforma", "linux", "ansible", "terraform"},
+    {"rpa", "automacao", "automation", "uipath", "blueprism",
+     "powerautomate", "robotica"},
+    {"suporte", "support", "servicedesk", "helpdesk", "atendimento",
+     "infraestrutura", "sustentacao", "incidente"},
+    {"pmo", "projeto", "gestao", "coordenacao", "coordenador", "gerente",
+     "manager", "scrum", "agil", "master", "product", "owner", "lideranca"},
+    {"arquiteto", "arquitetura", "solucao", "sistemas", "solucoes",
+     "enterprise", "microservicos", "integracao", "middleware"},
+    {"funcional", "negocios", "negocio", "requisitos", "processos",
+     "produto", "business", "analista", "analyst", "funcional",
+     "levantamento", "mapeamento"},
+    {"sap", "abap", "fiori", "hana", "erp", "s4hana"},
+    {"seguranca", "security", "cyber", "pentest", "soc", "ciberseguranca"},
+    {"administrativo", "admin", "recursos", "humanos", "rh",
+     "financeiro", "contabil", "backoffice"},
+    {"qualidade", "teste", "testes", "quality", "qa", "automacao",
+     "selenium", "cypress", "jira", "testador"},
+    {"net", "dotnet", "csharp", "aspnet", "azure", "microsoft"},
+    {"php", "laravel", "symfony", "web", "wordpress", "drupal"},
+]
+
 def limpar_texto(texto):
     if pd.isna(texto):
         return ""
@@ -209,6 +247,13 @@ def normalizar_col(nome):
     nome = re.sub(r"[\s_]+", "_", nome)
 
     return nome
+
+def normalizar_cargo(texto):
+    t = limpar_texto(texto)
+    t = re.sub(r"full\s+stack", "fullstack", t)
+    t = re.sub(r"front\s+end",  "frontend",  t)
+    t = re.sub(r"back\s+end",   "backend",   t)
+    return t
 
 def encontrar_coluna(df, candidatos):
     cols_norm = {normalizar_col(c): c for c in df.columns}
@@ -287,15 +332,218 @@ def tem_skill_direta(perfil, vaga_texto):
 
     return False
 
-def gerar_excel(df):
+def gerar_excel(df, sheet_name="Matching"):
     output = BytesIO()
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Matching")
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
 
     output.seek(0)
 
     return output
+
+def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv=""):
+    coluna_descricao  = colunas_mapa.get("coluna_descricao")
+    coluna_nome_perfil = colunas_mapa.get("coluna_nome_perfil")
+    coluna_rol_colab   = colunas_mapa.get("coluna_rol_colab")
+    coluna_taxa_colab  = colunas_mapa.get("coluna_taxa_colab")
+    coluna_rol_vaga    = colunas_mapa.get("coluna_rol_vaga")
+    coluna_taxa_vaga   = colunas_mapa.get("coluna_taxa_vaga")
+
+    descricao_colab = limpar_texto_modelo(perfil_row.get(coluna_descricao, "")) if coluna_descricao else ""
+    nome_perfil = limpar_texto_modelo(perfil_row.get(coluna_nome_perfil, "")) if coluna_nome_perfil else ""
+    
+    perfil_texto = limpar_texto(descricao_colab + " " + nome_perfil + " " + texto_cv)
+    taxa_colab = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
+
+    termos_cargo_filtro = []
+    termos_expandidos   = set()
+
+    termos_genericos_global = {
+        "analista", "desenvolvedor", "especialista", "consultor",
+        "coordenador", "gerente", "manager", "senior", "pleno",
+        "junior", "lead", "tecnico", "engenheiro", "arquiteto"
+    }
+
+    if nome_perfil:
+        cargo_norm = normalizar_cargo(nome_perfil)
+        termos_cargo_filtro = [t for t in cargo_norm.split() if len(t) >= 2]
+
+        for termo in termos_cargo_filtro:
+            for grupo in AREAS_RELACIONADAS:
+                if termo in grupo:
+                    termos_expandidos.update(grupo)
+
+        termos_uteis_cargo = [
+            t for t in termos_cargo_filtro
+            if t not in termos_genericos_global and len(t) >= 2
+        ]
+        cargo_generico = len(termos_uteis_cargo) == 0
+
+        if cargo_generico and descricao_colab:
+            desc_norm = normalizar_cargo(descricao_colab)
+            desc_tokens = [t for t in desc_norm.split()
+                           if len(t) >= 3 and t not in termos_genericos_global]
+
+            for token in desc_tokens:
+                for grupo in AREAS_RELACIONADAS:
+                    if token in grupo:
+                        termos_expandidos.update(grupo)
+                        termos_cargo_filtro.append(token)
+
+        if not termos_expandidos:
+            termos_expandidos = set(termos_cargo_filtro)
+
+    def filtro_vaga(row):
+        if coluna_rol_colab and coluna_rol_vaga:
+            if not rol_compativel(
+                perfil_row.get(coluna_rol_colab),
+                row.get(coluna_rol_vaga)
+            ):
+                return False
+
+        if coluna_taxa_vaga:
+            taxa_max = tratar_taxa(row.get(coluna_taxa_vaga))
+            if taxa_max > 0 and taxa_colab > taxa_max:
+                return False
+
+        if termos_expandidos and termos_cargo_filtro:
+            perfil_res = normalizar_cargo(
+                str(row.get("perfil solicitado resumido", ""))
+                + " " +
+                str(row.get("perfil profesional", ""))
+            )
+
+            hits_originais = sum(1 for t in termos_cargo_filtro if t in perfil_res)
+            min_hits = max(1, round(len(termos_cargo_filtro) * 0.30))
+
+            termos_genericos = {"analista", "desenvolvedor", "especialista",
+                                "consultor", "coordenador", "gerente", "senior",
+                                "pleno", "junior", "lead", "tecnico"}
+            termos_especificos = [t for t in termos_cargo_filtro
+                                  if t not in termos_genericos and len(t) >= 2]
+
+            if termos_especificos:
+                hits_especificos = sum(1 for t in termos_especificos if t in perfil_res)
+                hits_expandidos  = sum(1 for t in termos_expandidos if t in perfil_res)
+                if hits_especificos == 0 and hits_expandidos < 2:
+                    return False
+            else:
+                if hits_originais < min_hits:
+                    return False
+
+        return True
+
+    vagas_filtradas = vagas[vagas.apply(filtro_vaga, axis=1)].copy()
+
+    if len(vagas_filtradas) == 0:
+        def filtro_vaga_relaxado(row):
+            if coluna_rol_colab and coluna_rol_vaga:
+                if not rol_compativel(
+                    perfil_row.get(coluna_rol_colab),
+                    row.get(coluna_rol_vaga)
+                ):
+                    return False
+            if coluna_taxa_vaga:
+                taxa_max = tratar_taxa(row.get(coluna_taxa_vaga))
+                if taxa_max > 0 and taxa_colab > taxa_max:
+                    return False
+            return True
+
+        vagas_filtradas = vagas[vagas.apply(filtro_vaga_relaxado, axis=1)].copy()
+
+        if len(vagas_filtradas) == 0:
+            return pd.DataFrame()
+
+    vectorizer = TfidfVectorizer(stop_words=None)
+    corpus = vagas_filtradas["texto"].tolist()
+    corpus.append(perfil_texto if perfil_texto.strip() else "sem perfil")
+
+    vectors = vectorizer.fit_transform(corpus)
+    scores = cosine_similarity(vectors[-1], vectors[:-1])[0]
+
+    PESO_TFIDF = 0.40
+    PESO_CARGO = 0.25
+    PESO_ROL   = 0.15
+    PESO_TAXA  = 0.10
+    PESO_CV    = 0.10
+
+    tem_perfil_suficiente = len(perfil_texto.split()) >= 10
+
+    termos_cargo = []
+    cargo_normalizado = ""
+    if nome_perfil:
+        cargo_normalizado = normalizar_cargo(nome_perfil)
+        termos_cargo = [t for t in cargo_normalizado.split() if len(t) > 2]
+
+    texto_cv_limpo = limpar_texto(texto_cv)
+    final_scores   = []
+    breakdowns     = []
+
+    for i, row_texto in enumerate(vagas_filtradas["texto"]):
+        row_vaga_i = vagas_filtradas.iloc[i]
+        score_tfidf = scores[i]
+        perfil_resumido = normalizar_cargo(str(row_vaga_i.get("perfil solicitado resumido", "")))
+
+        if termos_cargo and perfil_resumido:
+            hits_cargo  = sum(1 for t in termos_cargo if t in perfil_resumido)
+            score_cargo = hits_cargo / len(termos_cargo)
+        elif cargo_normalizado and cargo_normalizado in perfil_resumido:
+            score_cargo = 1.0
+        else:
+            score_cargo = 0.0
+
+        rol_c = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
+        rol_v = str(row_vaga_i.get(coluna_rol_vaga,  "")) if coluna_rol_vaga  else ""
+        score_rol = 1.0 if rol_compativel(rol_c, rol_v) else 0.0
+
+        taxa_c_loop = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
+        taxa_v_loop = tratar_taxa(row_vaga_i.get(coluna_taxa_vaga))  if coluna_taxa_vaga  else 0
+
+        if taxa_v_loop > 0 and taxa_c_loop > 0:
+            score_taxa = 1.0 if taxa_c_loop <= taxa_v_loop else 0.0
+        else:
+            score_taxa = 0.0
+
+        score_cv = 1.0 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
+
+        if tem_perfil_suficiente:
+            p_tfidf = PESO_TFIDF
+            p_cargo = PESO_CARGO
+            p_rol   = PESO_ROL
+            p_taxa  = PESO_TAXA
+            p_cv    = PESO_CV
+        else:
+            extra   = PESO_TFIDF / 3
+            p_tfidf = 0.0
+            p_cargo = PESO_CARGO + extra
+            p_rol   = PESO_ROL   + extra
+            p_taxa  = PESO_TAXA  + extra
+            p_cv    = PESO_CV
+
+        score_final = (
+            score_tfidf * p_tfidf +
+            score_cargo * p_cargo +
+            score_rol   * p_rol   +
+            score_taxa  * p_taxa  +
+            score_cv    * p_cv
+        )
+
+        final_scores.append(round(score_final, 4))
+        breakdowns.append({
+            "tfidf":             round(score_tfidf * p_tfidf, 4),
+            "cargo":             round(score_cargo * p_cargo, 4),
+            "rol":               round(score_rol   * p_rol,   4),
+            "taxa":              round(score_taxa  * p_taxa,  4),
+            "cv":                round(score_cv    * p_cv,    4),
+            "total":             round(score_final, 4),
+            "perfil_suficiente": tem_perfil_suficiente,
+        })
+
+    vagas_filtradas["match"]      = final_scores
+    vagas_filtradas["_breakdown"] = breakdowns
+
+    return vagas_filtradas
 
 if "resultado_cache" not in st.session_state:
     st.session_state.resultado_cache = None
@@ -311,6 +559,9 @@ if "texto_cv_cache" not in st.session_state:
 
 if "col_obs_cache" not in st.session_state:
     st.session_state.col_obs_cache = None
+
+if "resultado_massivo_cache" not in st.session_state:
+    st.session_state.resultado_massivo_cache = None
 
 st.subheader("Upload das Bases")
 
@@ -381,36 +632,21 @@ if file_vagas and file_colab:
         vagas["outros"] = "-"
 
     st.success("Bases carregadas com sucesso")
-
     st.divider()
 
     coluna_nome = encontrar_coluna(colab, [
-        "nome_colaborador",
-        "nome colaborador",
-        "nome",
-        "colaborador",
-        "funcionario",
-        "nombre_colaborador",
-        "nombre colaborador",
-        "nombre",
-        "employee",
-        "name",
-        "empleado"
+        "nome_colaborador", "nome colaborador", "nome", "colaborador",
+        "funcionario", "nombre_colaborador", "nombre colaborador",
+        "nombre", "employee", "name", "empleado"
     ])
 
     coluna_matricula = encontrar_coluna(colab, [
-        "matricula_colaborador",
-        "matricula colaborador",
-        "matricula",
-        "employee_id",
-        "cod_colaborador",
-        "codigo",
-        "id"
+        "matricula_colaborador", "matricula colaborador", "matricula",
+        "employee_id", "cod_colaborador", "codigo", "id"
     ])
 
     if not coluna_nome:
         st.error("Coluna de nome não encontrada na Base de Colaboradores.")
-
         colunas_disponiveis = ", ".join([f"`{c}`" for c in colab.columns.tolist()])
 
         st.markdown(
@@ -429,467 +665,250 @@ if file_vagas and file_colab:
         if not coluna_nome:
             st.stop()
 
+    colab[coluna_nome] = colab[coluna_nome].fillna("").astype(str).str.strip()
+
     coluna_nome_perfil = encontrar_coluna(colab, [
-        "nome_perfil",
-        "perfil",
-        "cargo",
-        "funcao",
-        "perfil_colaborador",
-        "role",
-        "position",
-        "puesto"
+        "nome_perfil", "perfil", "cargo", "funcao",
+        "perfil_colaborador", "role", "position", "puesto"
     ])
 
     coluna_descricao = encontrar_coluna(colab, [
-        "descricao",
-        "descricao_colaborador",
-        "description",
-        "resumo",
-        "summary",
-        "perfil_resumo"
+        "descricao", "descricao_colaborador", "description",
+        "resumo", "summary", "perfil_resumo"
     ])
 
     coluna_rol_colab  = encontrar_coluna(colab, ["roll", "rol", "role", "nivel"])
     coluna_taxa_colab = encontrar_coluna(colab, ["taxa", "tasa", "rate", "valor"])
     coluna_rol_vaga   = encontrar_coluna(vagas, ["rol reporting", "rol", "role", "nivel"])
     coluna_taxa_vaga  = encontrar_coluna(vagas, [
-        "tasa maxima deseable",
-        "tasa máxima deseable",
-        "taxa maxima",
-        "taxa",
-        "tasa",
-        "rate_max"
+        "tasa maxima deseable", "tasa máxima deseable",
+        "taxa maxima", "taxa", "tasa", "rate_max"
     ])
 
-    st.subheader("Seleção de Colaborador")
+    colunas_mapa = {
+        "coluna_nome": coluna_nome,
+        "coluna_matricula": coluna_matricula,
+        "coluna_nome_perfil": coluna_nome_perfil,
+        "coluna_descricao": coluna_descricao,
+        "coluna_rol_colab": coluna_rol_colab,
+        "coluna_taxa_colab": coluna_taxa_colab,
+        "coluna_rol_vaga": coluna_rol_vaga,
+        "coluna_taxa_vaga": coluna_taxa_vaga,
+    }
 
-    busca = st.text_input("Digite nome ou matrícula")
-
-    colab[coluna_nome] = colab[coluna_nome].fillna("").astype(str).str.strip()
-
-    if busca:
-        filtro_nome = colab[coluna_nome].astype(str).str.contains(
-            busca,
-            case=False,
-            na=False
-        )
-
-        if coluna_matricula:
-            filtro_matricula = colab[coluna_matricula].astype(str).str.contains(
-                busca,
-                na=False
-            )
-            filtro_df = colab[filtro_nome | filtro_matricula]
-        else:
-            filtro_df = colab[filtro_nome]
-    else:
-        filtro_df = colab
-
-    if filtro_df.empty:
-        st.warning("Nenhum colaborador encontrado com esse filtro.")
-        st.stop()
-
-    selecionado = st.selectbox(
-        "Selecione o colaborador",
-        filtro_df[coluna_nome].tolist()
+    st.subheader("Modo de Análise")
+    tipo_analise = st.radio(
+        "Selecione como deseja realizar o matching:",
+        ["Análise Individual (Um colaborador)", "Análise Massiva (Todos da base de colaboradores)"],
+        horizontal=True
     )
-
-    linhas = filtro_df[filtro_df[coluna_nome] == selecionado]
-
-    if linhas.empty:
-        st.error("Colaborador não encontrado. Tente novamente.")
-        st.stop()
-
-    perfil_row = linhas.iloc[0]
-
-    st.markdown(
-        "<div class='cv-box'><b>Currículo de " + str(selecionado) +
-        " (Opcional)</b><br><span style='color:#8b949e;font-size:13px;'>" +
-        "Anexe o CV em PDF para enriquecer o matching com skills, experiências e formações." +
-        "</span></div>",
-        unsafe_allow_html=True
-    )
-
-    cv_pdf = st.file_uploader(
-        "Anexar CV em PDF",
-        type=["pdf"],
-        key=f"cv_{selecionado}"
-    )
-
-    texto_cv = ""
-
-    if cv_pdf:
-        with st.spinner("Extraindo informações do CV..."):
-            texto_cv = extrair_texto_pdf(cv_pdf)
-
-        if texto_cv.strip():
-            st.success(f"CV de {selecionado} carregado — {len(texto_cv.split())} palavras extraídas")
-        else:
-            st.warning("Não foi possível extrair texto do PDF enviado.")
-
-    descricao_colab = ""
-
-    if coluna_descricao:
-        descricao_colab = limpar_texto_modelo(perfil_row.get(coluna_descricao, ""))
-
-    nome_perfil = ""
-
-    if coluna_nome_perfil:
-        nome_perfil = limpar_texto_modelo(
-            perfil_row.get(coluna_nome_perfil, "")
-        )
-
-    perfil_texto = limpar_texto(
-        descricao_colab + " " + nome_perfil + " " + texto_cv
-    )
-
-    if not perfil_texto.strip():
-        st.warning("Este colaborador não possui descrição de perfil nem CV anexado. O match pode ter baixa precisão.")
 
     st.divider()
 
-    if st.button("Buscar Vagas Compatíveis"):
+    if tipo_analise == "Análise Individual (Um colaborador)":
 
-        taxa_colab = tratar_taxa(
-            perfil_row.get(coluna_taxa_colab)
-        ) if coluna_taxa_colab else 0
+        st.subheader("Seleção de Colaborador")
 
-        with st.spinner("Calculando compatibilidade das vagas..."):
+        busca = st.text_input("Digite nome ou matrícula")
 
-            def normalizar_cargo_filtro(texto):
-                t = limpar_texto(texto)
-                t = t.replace("full stack", "fullstack")
-                t = t.replace("front end", "frontend")
-                t = t.replace("back end",  "backend")
-                return t
+        if busca:
+            filtro_nome = colab[coluna_nome].astype(str).str.contains(busca, case=False, na=False)
 
-            AREAS_RELACIONADAS = [
-                {"ux", "ui", "design", "produto", "frontend", "front", "usabilidade",
-                 "figma", "prototipo", "experiencia", "interface", "wireframe"},
-                {"frontend", "front", "react", "angular", "vue", "mobile", "ios",
-                 "android", "flutter", "web", "javascript", "typescript", "html", "css"},
-                {"backend", "back", "java", "python", "node", "dotnet", "net",
-                 "api", "microsservicos", "php", "ruby", "golang", "kotlin", "spring"},
-                {"fullstack", "full", "frontend", "backend", "front", "back",
-                 "web", "react", "angular", "node", "java", "python"},
-                {"dados", "data", "analytics", "bi", "business", "intelligence",
-                 "sql", "dba", "banco", "database", "engenheiro", "etl", "teradata",
-                 "powercenter", "informatica", "microstrategy", "datawarehouse", "dw",
-                 "bigdata", "spark", "hadoop", "databricks", "pipeline"},
-                {"oracle", "sql", "plsql", "database", "dba", "banco", "teradata",
-                 "mysql", "postgres", "sqlserver"},
-                {"devops", "infra", "cloud", "aws", "azure", "gcp", "kubernetes",
-                 "docker", "sre", "plataforma", "linux", "ansible", "terraform"},
-                {"rpa", "automacao", "automation", "uipath", "blueprism",
-                 "powerautomate", "robotica"},
-                {"suporte", "support", "servicedesk", "helpdesk", "atendimento",
-                 "infraestrutura", "sustentacao", "incidente"},
-                {"pmo", "projeto", "gestao", "coordenacao", "coordenador", "gerente",
-                 "manager", "scrum", "agil", "master", "product", "owner", "lideranca"},
-                {"arquiteto", "arquitetura", "solucao", "sistemas", "solucoes",
-                 "enterprise", "microservicos", "integracao", "middleware"},
-                {"funcional", "negocios", "negocio", "requisitos", "processos",
-                 "produto", "business", "analista", "analyst", "funcional",
-                 "levantamento", "mapeamento"},
-                {"sap", "abap", "fiori", "hana", "erp", "s4hana"},
-                {"seguranca", "security", "cyber", "pentest", "soc", "ciberseguranca"},
-                {"administrativo", "admin", "recursos", "humanos", "rh",
-                 "financeiro", "contabil", "backoffice"},
-                {"qualidade", "teste", "testes", "quality", "qa", "automacao",
-                 "selenium", "cypress", "jira", "testador"},
-                {"net", "dotnet", "csharp", "aspnet", "azure", "microsoft"},
-                {"php", "laravel", "symfony", "web", "wordpress", "drupal"},
-            ]
+            if coluna_matricula:
+                filtro_matricula = colab[coluna_matricula].astype(str).str.contains(busca, na=False)
+                filtro_df = colab[filtro_nome | filtro_matricula]
+            else:
+                filtro_df = colab[filtro_nome]
+        else:
+            filtro_df = colab
 
-            termos_cargo_filtro = []
-            termos_expandidos   = set()
-
-            termos_genericos_global = {
-                "analista", "desenvolvedor", "especialista", "consultor",
-                "coordenador", "gerente", "manager", "senior", "pleno",
-                "junior", "lead", "tecnico", "engenheiro", "arquiteto"
-            }
-
-            if nome_perfil:
-                cargo_norm = normalizar_cargo_filtro(nome_perfil)
-                termos_cargo_filtro = [t for t in cargo_norm.split() if len(t) >= 2]
-
-                for termo in termos_cargo_filtro:
-                    for grupo in AREAS_RELACIONADAS:
-                        if termo in grupo:
-                            termos_expandidos.update(grupo)
-
-                termos_uteis_cargo = [
-                    t for t in termos_cargo_filtro
-                    if t not in termos_genericos_global and len(t) >= 2
-                ]
-                cargo_generico = len(termos_uteis_cargo) == 0
-
-                if cargo_generico and descricao_colab:
-                    desc_norm = normalizar_cargo_filtro(descricao_colab)
-                    desc_tokens = [t for t in desc_norm.split()
-                                   if len(t) >= 3 and t not in termos_genericos_global]
-
-                    for token in desc_tokens:
-                        for grupo in AREAS_RELACIONADAS:
-                            if token in grupo:
-                                termos_expandidos.update(grupo)
-                                termos_cargo_filtro.append(token)
-
-                if not termos_expandidos:
-                    termos_expandidos = set(termos_cargo_filtro)
-
-            def filtro_vaga(row):
-                if coluna_rol_colab and coluna_rol_vaga:
-                    if not rol_compativel(
-                        perfil_row.get(coluna_rol_colab),
-                        row.get(coluna_rol_vaga)
-                    ):
-                        return False
-
-                if coluna_taxa_vaga:
-                    taxa_max = tratar_taxa(row.get(coluna_taxa_vaga))
-                    if taxa_max > 0 and taxa_colab > taxa_max:
-                        return False
-
-                if termos_expandidos and termos_cargo_filtro:
-                    perfil_res = normalizar_cargo_filtro(
-                        str(row.get("perfil solicitado resumido", ""))
-                        + " " +
-                        str(row.get("perfil profesional", ""))
-                    )
-
-                    hits_originais = sum(1 for t in termos_cargo_filtro if t in perfil_res)
-                    min_hits = max(1, round(len(termos_cargo_filtro) * 0.30))
-
-                    termos_genericos = {"analista", "desenvolvedor", "especialista",
-                                        "consultor", "coordenador", "gerente", "senior",
-                                        "pleno", "junior", "lead", "tecnico"}
-                    termos_especificos = [t for t in termos_cargo_filtro
-                                          if t not in termos_genericos and len(t) >= 2]
-
-                    if termos_especificos:
-                        hits_especificos = sum(1 for t in termos_especificos if t in perfil_res)
-                        hits_expandidos  = sum(1 for t in termos_expandidos if t in perfil_res)
-                        if hits_especificos == 0 and hits_expandidos < 2:
-                            return False
-                    else:
-                        if hits_originais < min_hits:
-                            return False
-
-                return True
-
-            vagas_filtradas = vagas[
-                vagas.apply(filtro_vaga, axis=1)
-            ].copy()
-
-            if len(vagas_filtradas) == 0:
-
-                def filtro_vaga_relaxado(row):
-                    if coluna_rol_colab and coluna_rol_vaga:
-                        if not rol_compativel(
-                            perfil_row.get(coluna_rol_colab),
-                            row.get(coluna_rol_vaga)
-                        ):
-                            return False
-                    if coluna_taxa_vaga:
-                        taxa_max = tratar_taxa(row.get(coluna_taxa_vaga))
-                        if taxa_max > 0 and taxa_colab > taxa_max:
-                            return False
-                    return True
-
-                vagas_filtradas = vagas[
-                    vagas.apply(filtro_vaga_relaxado, axis=1)
-                ].copy()
-
-                if len(vagas_filtradas) == 0:
-                    st.warning("Nenhuma vaga compatível encontrada para este colaborador.")
-                    st.stop()
-
-            vectorizer = TfidfVectorizer(stop_words=None)
-
-            corpus = vagas_filtradas["texto"].tolist()
-            corpus.append(perfil_texto if perfil_texto.strip() else "sem perfil")
-
-            vectors = vectorizer.fit_transform(corpus)
-
-            scores = cosine_similarity(
-                vectors[-1],
-                vectors[:-1]
-            )[0]
-
-            PESO_TFIDF = 0.40
-            PESO_CARGO = 0.25
-            PESO_ROL   = 0.15
-            PESO_TAXA  = 0.10
-            PESO_CV    = 0.10
-
-            tem_perfil_suficiente = len(perfil_texto.split()) >= 10
-
-            def normalizar_cargo(texto):
-                t = limpar_texto(texto)
-                t = re.sub(r"full\s+stack", "fullstack", t)
-                t = re.sub(r"front\s+end",  "frontend",  t)
-                t = re.sub(r"back\s+end",   "backend",   t)
-                return t
-
-            termos_cargo = []
-            cargo_normalizado = ""
-            if nome_perfil:
-                cargo_normalizado = normalizar_cargo(nome_perfil)
-                termos_cargo = [t for t in cargo_normalizado.split() if len(t) > 2]
-
-            texto_cv_limpo = limpar_texto(texto_cv)
-            final_scores   = []
-            breakdowns     = []
-
-            for i, row_texto in enumerate(vagas_filtradas["texto"]):
-
-                row_vaga_i = vagas_filtradas.iloc[i]
-
-                score_tfidf = scores[i]
-
-                perfil_resumido = normalizar_cargo(str(row_vaga_i.get("perfil solicitado resumido", "")))
-
-                if termos_cargo and perfil_resumido:
-                    hits_cargo  = sum(1 for t in termos_cargo if t in perfil_resumido)
-                    score_cargo = hits_cargo / len(termos_cargo)
-                elif cargo_normalizado and cargo_normalizado in perfil_resumido:
-                    score_cargo = 1.0
-                else:
-                    score_cargo = 0.0
-
-                rol_c = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
-                rol_v = str(row_vaga_i.get(coluna_rol_vaga,  "")) if coluna_rol_vaga  else ""
-                score_rol = 1.0 if rol_compativel(rol_c, rol_v) else 0.0
-
-                taxa_c_loop = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
-                taxa_v_loop = tratar_taxa(row_vaga_i.get(coluna_taxa_vaga))  if coluna_taxa_vaga  else 0
-
-                if taxa_v_loop > 0 and taxa_c_loop > 0:
-                    score_taxa = 1.0 if taxa_c_loop <= taxa_v_loop else 0.0
-                else:
-                    score_taxa = 0.0
-
-                score_cv = 1.0 if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto)) else 0.0
-
-                if tem_perfil_suficiente:
-                    p_tfidf = PESO_TFIDF
-                    p_cargo = PESO_CARGO
-                    p_rol   = PESO_ROL
-                    p_taxa  = PESO_TAXA
-                    p_cv    = PESO_CV
-                else:
-                    extra   = PESO_TFIDF / 3
-                    p_tfidf = 0.0
-                    p_cargo = PESO_CARGO + extra
-                    p_rol   = PESO_ROL   + extra
-                    p_taxa  = PESO_TAXA  + extra
-                    p_cv    = PESO_CV
-
-                score_final = (
-                    score_tfidf * p_tfidf +
-                    score_cargo * p_cargo +
-                    score_rol   * p_rol   +
-                    score_taxa  * p_taxa  +
-                    score_cv    * p_cv
-                )
-
-                final_scores.append(round(score_final, 4))
-
-                breakdowns.append({
-                    "tfidf":             round(score_tfidf * p_tfidf, 4),
-                    "cargo":             round(score_cargo * p_cargo, 4),
-                    "rol":               round(score_rol   * p_rol,   4),
-                    "taxa":              round(score_taxa  * p_taxa,  4),
-                    "cv":                round(score_cv    * p_cv,    4),
-                    "total":             round(score_final, 4),
-                    "perfil_suficiente": tem_perfil_suficiente,
-                })
-
-            vagas_filtradas["match"]      = final_scores
-            vagas_filtradas["_breakdown"] = breakdowns
-
-        resultado_ordenado = vagas_filtradas.sort_values("match", ascending=False)
-        resultado_50       = resultado_ordenado[resultado_ordenado["match"] >= 0.50]
-
-        sem_vaga_50 = len(resultado_50) == 0
-        resultado   = resultado_50 if not sem_vaga_50 else resultado_ordenado
-
-        score_medio = round(resultado["match"].mean() * 100, 1) if len(resultado) > 0 else 0
-
-        if len(resultado) == 0:
-            st.warning(
-                "Nenhuma vaga compatível encontrada para este colaborador. "
-                "Tente anexar o CV ou verifique se o perfil está preenchido na base."
-            )
+        if filtro_df.empty:
+            st.warning("Nenhum colaborador encontrado com esse filtro.")
             st.stop()
 
+        selecionado = st.selectbox("Selecione o colaborador", filtro_df[coluna_nome].tolist())
+        linhas = filtro_df[filtro_df[coluna_nome] == selecionado]
+
+        if linhas.empty:
+            st.error("Colaborador não encontrado. Tente novamente.")
+            st.stop()
+
+        perfil_row = linhas.iloc[0]
+
         st.markdown(
-            f"""
-            <div style="
-                background: linear-gradient(135deg, #1c2330 0%, #161b22 100%);
-                border: 1px solid #1f6feb55;
-                border-left: 4px solid #1f6feb;
-                border-radius: 12px;
-                padding: 18px 24px;
-                margin-bottom: 20px;
-            ">
-                <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">{"Nenhuma vaga com score >= 50% encontrada - exibindo todas as vagas disponíveis" if sem_vaga_50 else "Resultado da análise - apenas vagas com score >= 50%"}</div>
-                <div style="color:#e6edf3; font-size:22px; font-weight:700;">
-                    Vagas compatíveis para <span style="color:#388bfd;">{selecionado}</span>
-                </div>
-            </div>
-            """,
+            "<div class='cv-box'><b>Currículo de " + str(selecionado) +
+            " (Opcional)</b><br><span style='color:#8b949e;font-size:13px;'>" +
+            "Anexe o CV em PDF para enriquecer o matching com skills, experiências e formações." +
+            "</span></div>",
             unsafe_allow_html=True
         )
 
-        col_m1, col_m2, col_m3 = st.columns(3)
+        cv_pdf = st.file_uploader("Anexar CV em PDF", type=["pdf"], key=f"cv_{selecionado}")
 
-        with col_m1:
-            st.metric("Vagas encontradas", len(resultado))
+        texto_cv = ""
+        if cv_pdf:
+            with st.spinner("Extraindo informações do CV..."):
+                texto_cv = extrair_texto_pdf(cv_pdf)
 
-        with col_m2:
-            st.metric("Score médio", f"{score_medio}%")
+            if texto_cv.strip():
+                st.success(f"CV de {selecionado} carregado — {len(texto_cv.split())} palavras extraídas")
+            else:
+                st.warning("Não foi possível extrair texto do PDF enviado.")
 
-        with col_m3:
-            cv_status = "Sim" if texto_cv.strip() else "Não"
-            st.metric("CV utilizado no match", cv_status)
+        descricao_colab = limpar_texto_modelo(perfil_row.get(coluna_descricao, "")) if coluna_descricao else ""
+        nome_perfil = limpar_texto_modelo(perfil_row.get(coluna_nome_perfil, "")) if coluna_nome_perfil else ""
+        perfil_texto = limpar_texto(descricao_colab + " " + nome_perfil + " " + texto_cv)
 
-        colunas_exibir = [
-            "proyecto",
-            "solicitante",
-            "necesidad",
-            "estado necesidad",
-            "rol reporting",
-            "tasa máxima deseable",
-            "match",
-            "perfil profesional",
-            "perfil solicitado resumido",
-            "lugar de trabajo",
-            "lugar de trabajo definitivo",
-            "perfil solicitado detallado",
-            "conocimientos funcionales",
-            "conocimientos tecnicos",
-            "observaciones necesidad",
-            "outros"
-        ]
+        if not perfil_texto.strip():
+            st.warning("Este colaborador não possui descrição de perfil nem CV anexado. O match pode ter baixa precisão.")
 
-        if col_obs and col_obs not in colunas_exibir:
-            colunas_exibir = [col_obs if c == "observaciones necesidad" else c for c in colunas_exibir]
+        st.divider()
 
-        colunas_exibir = [
-            c for c in colunas_exibir
-            if c in resultado.columns
-        ]
+        if st.button("Buscar Vagas Compatíveis"):
+            with st.spinner("Calculando compatibilidade das vagas..."):
+                vagas_filtradas = calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv)
 
-        st.session_state.resultado_cache   = resultado
-        st.session_state.colunas_cache     = colunas_exibir
-        st.session_state.selecionado_cache = selecionado
-        st.session_state.texto_cv_cache    = texto_cv
-        st.session_state.col_obs_cache     = col_obs
+            if len(vagas_filtradas) == 0:
+                st.warning("Nenhuma vaga compatível encontrada para este colaborador.")
+                st.stop()
 
-if st.session_state.resultado_cache is not None:
+            resultado_ordenado = vagas_filtradas.sort_values("match", ascending=False)
+            resultado_50       = resultado_ordenado[resultado_ordenado["match"] >= 0.50]
+
+            sem_vaga_50 = len(resultado_50) == 0
+            resultado   = resultado_50 if not sem_vaga_50 else resultado_ordenado
+
+            score_medio = round(resultado["match"].mean() * 100, 1) if len(resultado) > 0 else 0
+
+            st.markdown(
+                f"""
+                <div style="
+                    background: linear-gradient(135deg, #1c2330 0%, #161b22 100%);
+                    border: 1px solid #1f6feb55;
+                    border-left: 4px solid #1f6feb;
+                    border-radius: 12px;
+                    padding: 18px 24px;
+                    margin-bottom: 20px;
+                ">
+                    <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">{"Nenhuma vaga com score >= 50% encontrada - exibindo todas as vagas disponíveis" if sem_vaga_50 else "Resultado da análise - apenas vagas com score >= 50%"}</div>
+                    <div style="color:#e6edf3; font-size:22px; font-weight:700;">
+                        Vagas compatíveis para <span style="color:#388bfd;">{selecionado}</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            col_m1, col_m2, col_m3 = st.columns(3)
+
+            with col_m1:
+                st.metric("Vagas encontradas", len(resultado))
+
+            with col_m2:
+                st.metric("Score médio", f"{score_medio}%")
+
+            with col_m3:
+                cv_status = "Sim" if texto_cv.strip() else "Não"
+                st.metric("CV utilizado no match", cv_status)
+
+            colunas_exibir = [
+                "proyecto", "solicitante", "necesidad", "estado necesidad",
+                "rol reporting", "tasa máxima deseable", "match",
+                "perfil profesional", "perfil solicitado resumido",
+                "lugar de trabajo", "lugar de trabajo definitivo",
+                "perfil solicitado detallado", "conocimientos funcionales",
+                "conocimientos tecnicos", "observaciones necesidad", "outros"
+            ]
+
+            if col_obs and col_obs not in colunas_exibir:
+                colunas_exibir = [col_obs if c == "observaciones necesidad" else c for c in colunas_exibir]
+
+            colunas_exibir = [c for c in colunas_exibir if c in resultado.columns]
+
+            st.session_state.resultado_cache   = resultado
+            st.session_state.colunas_cache     = colunas_exibir
+            st.session_state.selecionado_cache = selecionado
+            st.session_state.texto_cv_cache    = texto_cv
+            st.session_state.col_obs_cache     = col_obs
+
+    else:
+        st.subheader("Processamento Massivo")
+        st.info("O sistema analisará a aderência de **TODOS** os colaboradores cadastrados contra a base de vagas.")
+
+        top_n = st.number_input(
+            "Quantidade de melhores vagas por colaborador no relatório:",
+            min_value=1, max_value=10, value=1, step=1
+        )
+
+        if st.button("Executar Análise Massiva"):
+            lista_resultados = []
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+
+            total_colab = len(colab)
+
+            for idx, (_, colab_row) in enumerate(colab.iterrows()):
+                nome_c = colab_row.get(coluna_nome, f"Colaborador {idx+1}")
+                matricula_c = colab_row.get(coluna_matricula, "-") if coluna_matricula else "-"
+                cargo_c = colab_row.get(coluna_nome_perfil, "-") if coluna_nome_perfil else "-"
+
+                status_text.text(f"Analisando colaborador {idx+1} de {total_colab}: {nome_c}")
+                progress_bar.progress((idx + 1) / total_colab)
+
+                vagas_matching = calcular_matching_colaborador(colab_row, vagas, colunas_mapa)
+
+                if not vagas_matching.empty:
+                    vagas_ordenadas = vagas_matching.sort_values("match", ascending=False).head(top_n)
+
+                    for rank, (_, vaga_row) in enumerate(vagas_ordenadas.iterrows(), 1):
+                        registro = {
+                            "Nome Colaborador": nome_c,
+                            "Matrícula": matricula_c,
+                            "Cargo Colaborador": cargo_c,
+                            "Rol Colaborador": colab_row.get(coluna_rol_colab, "-") if coluna_rol_colab else "-",
+                            "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
+                            "Ranking Match": rank,
+                            "Match Score (%)": round(vaga_row["match"] * 100, 2),
+                            "Projeto Vaga": vaga_row.get("proyecto", "-"),
+                            "Necessidade Vaga": vaga_row.get("necesidad", "-"),
+                            "Solicitante Vaga": vaga_row.get("solicitante", "-"),
+                            "Rol Vaga": vaga_row.get("rol reporting", "-"),
+                            "Taxa Máx Vaga": vaga_row.get("tasa máxima deseable", "-"),
+                            "Perfil Resumido Vaga": vaga_row.get("perfil solicitado resumido", "-"),
+                        }
+                        lista_resultados.append(registro)
+
+            status_text.text("Análise massiva concluída!")
+            
+            if lista_resultados:
+                df_massivo = pd.DataFrame(lista_resultados)
+                st.session_state.resultado_massivo_cache = df_massivo
+            else:
+                st.warning("Nenhum match foi encontrado na base de dados.")
+
+if st.session_state.resultado_massivo_cache is not None and tipo_analise != "Análise Individual (Um colaborador)":
+    df_massivo = st.session_state.resultado_massivo_cache
+
+    st.divider()
+    st.subheader("Resultado da Análise Massiva")
+
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        st.metric("Total de Colaboradores Mapeados", df_massivo["Nome Colaborador"].nunique())
+    with col_m2:
+        st.metric("Média de Score Top 1", f"{round(df_massivo[df_massivo['Ranking Match'] == 1]['Match Score (%)'].mean(), 1)}%")
+
+    st.dataframe(df_massivo, use_container_width=True, height=500)
+
+    excel_massivo = gerar_excel(df_massivo, sheet_name="Matching_Massivo")
+    st.download_button(
+        label="Baixar Relatório Massivo em Excel",
+        data=excel_massivo,
+        file_name="matching_massivo_todos_colaboradores.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+if st.session_state.resultado_cache is not None and tipo_analise == "Análise Individual (Um colaborador)":
 
     resultado      = st.session_state.resultado_cache
     colunas_exibir = st.session_state.colunas_cache
@@ -1058,17 +1077,18 @@ if st.session_state.resultado_cache is not None:
             p_cv     = round(bd["cv"]    * 100, 1)
             p_taxa   = round(bd["taxa"]  * 100, 1)
 
-            rol_colab_val   = str(perfil_row.get(coluna_rol_colab, "")) if coluna_rol_colab else ""
-            rol_vaga_val    = str(row.get(coluna_rol_vaga, ""))         if coluna_rol_vaga  else ""
+            rol_colab_val   = str(colab[colab[coluna_nome] == selecionado].iloc[0].get(coluna_rol_colab, "")) if coluna_rol_colab else ""
+            rol_vaga_val    = str(row.get(coluna_rol_vaga, "")) if coluna_rol_vaga else ""
             rol_ok          = rol_compativel(rol_colab_val, rol_vaga_val)
-            nome_perfil_val = nome_perfil if nome_perfil else "—"
+            
+            nome_perfil_val = str(colab[colab[coluna_nome] == selecionado].iloc[0].get(coluna_nome_perfil, "—")) if coluna_nome_perfil else "—"
 
             perfil_prof_vaga = str(row.get("perfil solicitado resumido", "")).strip() or "—"
             if len(perfil_prof_vaga) > 60:
                 perfil_prof_vaga = perfil_prof_vaga[:60] + "..."
 
-            taxa_c  = tratar_taxa(perfil_row.get(coluna_taxa_colab)) if coluna_taxa_colab else 0
-            taxa_v  = tratar_taxa(row.get(coluna_taxa_vaga))          if coluna_taxa_vaga  else 0
+            taxa_c  = tratar_taxa(colab[colab[coluna_nome] == selecionado].iloc[0].get(coluna_taxa_colab)) if coluna_taxa_colab else 0
+            taxa_v  = tratar_taxa(row.get(coluna_taxa_vaga)) if coluna_taxa_vaga else 0
             taxa_ok = (taxa_v == 0) or (taxa_c <= taxa_v)
 
             cv_presente = texto_cv_limpo.strip() != ""
