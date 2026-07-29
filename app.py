@@ -7,9 +7,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 from io import BytesIO
 
-# =========================
-# 🎨 CONFIG VISUAL
-# =========================
 st.set_page_config(
     page_title="Matching Inteligente de Vagas",
     layout="wide"
@@ -152,10 +149,7 @@ div[data-testid="stExpander"] {
 </style>
 """, unsafe_allow_html=True)
 
-# =========================
-# 🏢 HEADER
-# =========================
-st.title("💼 Matching Inteligente de Vagas")
+st.title("Matching Inteligente de Vagas")
 
 col1, col2 = st.columns([5, 2])
 
@@ -165,15 +159,11 @@ with col1:
     )
 
 with col2:
-    st.markdown("<div class='header-company'>🏢 Indra Group | Minsait</div>", unsafe_allow_html=True)
+    st.markdown("<div class='header-company'>Indra Group | Minsait</div>", unsafe_allow_html=True)
 
 st.divider()
 
-# =========================
-# 🔧 LIMPEZA TEXTO
-# =========================
 def limpar_texto(texto):
-
     if pd.isna(texto):
         return ""
 
@@ -186,54 +176,33 @@ def limpar_texto(texto):
 
     return texto.strip()
 
-# =========================
-# 🔧 EVITAR NaN
-# =========================
 def limpar_texto_modelo(texto):
-
     if pd.isna(texto):
         return ""
 
     return str(texto)
 
-# =========================
-# 🔧 EXTRAIR TEXTO PDF
-# =========================
 def extrair_texto_pdf(arquivo_pdf):
-
     texto = ""
 
     try:
-
         with pdfplumber.open(arquivo_pdf) as pdf:
-
             for pagina in pdf.pages:
-
                 conteudo = pagina.extract_text()
-
                 if conteudo:
                     texto += " " + conteudo
-
     except Exception as e:
         st.warning(f"Erro ao ler PDF: {e}")
 
     return texto
 
-# =========================
-# 🔧 COLUNA SEGURA
-# =========================
 def get_coluna(df, nome):
-
     if nome in df.columns:
         return df[nome].fillna("").astype(str)
 
     return pd.Series([""] * len(df))
 
-# =========================
-# 🔧 DETECÇÃO FLEXÍVEL DE COLUNAS
-# =========================
 def normalizar_col(nome):
-
     nome = str(nome).strip().lower()
     nome = unicodedata.normalize("NFD", nome)
     nome = "".join(c for c in nome if unicodedata.category(c) != "Mn")
@@ -242,16 +211,13 @@ def normalizar_col(nome):
     return nome
 
 def encontrar_coluna(df, candidatos):
-
     cols_norm = {normalizar_col(c): c for c in df.columns}
 
-    # 1. Match exato normalizado
     for cand in candidatos:
         cand_norm = normalizar_col(cand)
         if cand_norm in cols_norm:
             return cols_norm[cand_norm]
 
-    # 2. Match parcial
     for cand in candidatos:
         cand_norm = normalizar_col(cand)
         for col_norm, col_real in cols_norm.items():
@@ -260,11 +226,7 @@ def encontrar_coluna(df, candidatos):
 
     return None
 
-# =========================
-# 🧠 PARSE DE ROL
-# =========================
 def parse_rol(rol):
-
     if pd.isna(rol):
         return {"tipo": "", "nivel": 0}
 
@@ -294,11 +256,7 @@ def parse_rol(rol):
         "nivel": nivel
     }
 
-# =========================
-# 🧠 REGRA DE ROL
-# =========================
 def rol_compativel(rol_colab, rol_vaga):
-
     colab = parse_rol(rol_colab)
     vaga = parse_rol(rol_vaga)
 
@@ -307,11 +265,7 @@ def rol_compativel(rol_colab, rol_vaga):
 
     return colab["nivel"] == vaga["nivel"]
 
-# =========================
-# 💰 TAXA
-# =========================
 def tratar_taxa(valor):
-
     if pd.isna(valor):
         return 0
 
@@ -321,29 +275,19 @@ def tratar_taxa(valor):
 
     try:
         return float(valor)
-
     except:
         return 0
 
-# =========================
-# 🧠 BOOST SKILL
-# =========================
 def tem_skill_direta(perfil, vaga_texto):
-
     palavras = perfil.split()
 
     for skill in palavras:
-
         if len(skill) > 4 and skill in vaga_texto:
             return True
 
     return False
 
-# =========================
-# 📥 GERAR EXCEL
-# =========================
 def gerar_excel(df):
-
     output = BytesIO()
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -353,9 +297,6 @@ def gerar_excel(df):
 
     return output
 
-# =========================
-# 🕓 INICIALIZAR HISTÓRICO
-# =========================
 if "resultado_cache" not in st.session_state:
     st.session_state.resultado_cache = None
 
@@ -371,10 +312,7 @@ if "texto_cv_cache" not in st.session_state:
 if "col_obs_cache" not in st.session_state:
     st.session_state.col_obs_cache = None
 
-# =========================
-# 📂 UPLOAD BASES
-# =========================
-st.subheader("📂 Upload das Bases")
+st.subheader("Upload das Bases")
 
 col1, col2 = st.columns(2)
 
@@ -390,9 +328,6 @@ with col2:
         type=["csv", "xlsx"]
     )
 
-# =========================
-# 🚀 PROCESSAMENTO
-# =========================
 if file_vagas and file_colab:
 
     vagas = (
@@ -410,14 +345,9 @@ if file_vagas and file_colab:
     vagas.columns = vagas.columns.str.strip().str.lower()
     colab.columns = colab.columns.str.strip().str.lower()
 
-    # =========================
-    # 🔁 DUPLICADAS MANTIDAS
-    # =========================
-    # As duplicidades na base de vagas foram mantidas conforme solicitado.
+    if "necesidad" in vagas.columns:
+        vagas = vagas.drop_duplicates(subset=["necesidad"])
 
-    # =========================
-    # 🧠 TEXTO DA VAGA
-    # =========================
     vagas["texto"] = (
         get_coluna(vagas, "conocimientos tecnicos")
         + " " +
@@ -432,10 +362,6 @@ if file_vagas and file_colab:
 
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
-    # =========================
-    # 🔧 EXTRAIR CAMPO A PARTIR DE "Híbrido" (ou Hibrido)
-    # de Observaciones Necesidad
-    # =========================
     col_obs = next((c for c in vagas.columns if "observaciones" in c and "necesidad" in c), None)
     if col_obs is None:
         col_obs = next((c for c in vagas.columns if "observaciones" in c), None)
@@ -454,13 +380,10 @@ if file_vagas and file_colab:
     else:
         vagas["outros"] = "-"
 
-    st.success("✅ Bases carregadas com sucesso")
+    st.success("Bases carregadas com sucesso")
 
     st.divider()
 
-    # =========================
-    # 🔍 IDENTIFICAR COLUNAS — DETECÇÃO FLEXÍVEL
-    # =========================
     coluna_nome = encontrar_coluna(colab, [
         "nome_colaborador",
         "nome colaborador",
@@ -485,18 +408,14 @@ if file_vagas and file_colab:
         "id"
     ])
 
-    # =========================
-    # ❌ COLUNA NOME NÃO ENCONTRADA
-    # =========================
     if not coluna_nome:
-
-        st.error("❌ Coluna de nome não encontrada na Base de Colaboradores.")
+        st.error("Coluna de nome não encontrada na Base de Colaboradores.")
 
         colunas_disponiveis = ", ".join([f"`{c}`" for c in colab.columns.tolist()])
 
         st.markdown(
             f"<div class='col-hint-box'>"
-            f"⚠️ <b>Colunas detectadas na sua planilha:</b><br><br>{colunas_disponiveis}<br><br>"
+            f"Colunas detectadas na sua planilha:<br><br>{colunas_disponiveis}<br><br>"
             f"Selecione manualmente qual coluna representa o <b>nome do colaborador</b>:"
             f"</div>",
             unsafe_allow_html=True
@@ -542,17 +461,13 @@ if file_vagas and file_colab:
         "rate_max"
     ])
 
-    # =========================
-    # 🔍 BUSCA COLABORADOR
-    # =========================
-    st.subheader("🔎 Seleção de Colaborador")
+    st.subheader("Seleção de Colaborador")
 
     busca = st.text_input("Digite nome ou matrícula")
 
     colab[coluna_nome] = colab[coluna_nome].fillna("").astype(str).str.strip()
 
     if busca:
-
         filtro_nome = colab[coluna_nome].astype(str).str.contains(
             busca,
             case=False,
@@ -560,17 +475,13 @@ if file_vagas and file_colab:
         )
 
         if coluna_matricula:
-
             filtro_matricula = colab[coluna_matricula].astype(str).str.contains(
                 busca,
                 na=False
             )
-
             filtro_df = colab[filtro_nome | filtro_matricula]
-
         else:
             filtro_df = colab[filtro_nome]
-
     else:
         filtro_df = colab
 
@@ -591,11 +502,8 @@ if file_vagas and file_colab:
 
     perfil_row = linhas.iloc[0]
 
-    # =========================
-    # 📄 UPLOAD CV
-    # =========================
     st.markdown(
-        "<div class='cv-box'><b>📄 Currículo de " + str(selecionado) +
+        "<div class='cv-box'><b>Currículo de " + str(selecionado) +
         " (Opcional)</b><br><span style='color:#8b949e;font-size:13px;'>" +
         "Anexe o CV em PDF para enriquecer o matching com skills, experiências e formações." +
         "</span></div>",
@@ -611,18 +519,14 @@ if file_vagas and file_colab:
     texto_cv = ""
 
     if cv_pdf:
-
-        with st.spinner("📖 Extraindo informações do CV..."):
+        with st.spinner("Extraindo informações do CV..."):
             texto_cv = extrair_texto_pdf(cv_pdf)
 
         if texto_cv.strip():
-            st.success(f"✅ CV de {selecionado} carregado — {len(texto_cv.split())} palavras extraídas")
+            st.success(f"CV de {selecionado} carregado — {len(texto_cv.split())} palavras extraídas")
         else:
-            st.warning("⚠️ Não foi possível extrair texto do PDF enviado.")
+            st.warning("Não foi possível extrair texto do PDF enviado.")
 
-    # =========================
-    # 🧠 TEXTO COLABORADOR
-    # =========================
     descricao_colab = ""
 
     if coluna_descricao:
@@ -640,20 +544,17 @@ if file_vagas and file_colab:
     )
 
     if not perfil_texto.strip():
-        st.warning("⚠️ Este colaborador não possui descrição de perfil nem CV anexado. O match pode ter baixa precisão.")
+        st.warning("Este colaborador não possui descrição de perfil nem CV anexado. O match pode ter baixa precisão.")
 
     st.divider()
 
-    # =========================
-    # 🚀 MATCH
-    # =========================
-    if st.button("🚀 Buscar Vagas Compatíveis"):
+    if st.button("Buscar Vagas Compatíveis"):
 
         taxa_colab = tratar_taxa(
             perfil_row.get(coluna_taxa_colab)
         ) if coluna_taxa_colab else 0
 
-        with st.spinner("🔍 Calculando compatibilidade das vagas..."):
+        with st.spinner("Calculando compatibilidade das vagas..."):
 
             def normalizar_cargo_filtro(texto):
                 t = limpar_texto(texto)
@@ -739,7 +640,6 @@ if file_vagas and file_colab:
                     termos_expandidos = set(termos_cargo_filtro)
 
             def filtro_vaga(row):
-
                 if coluna_rol_colab and coluna_rol_vaga:
                     if not rol_compativel(
                         perfil_row.get(coluna_rol_colab),
@@ -806,9 +706,6 @@ if file_vagas and file_colab:
                     st.warning("Nenhuma vaga compatível encontrada para este colaborador.")
                     st.stop()
 
-            # =========================
-            # 🧠 IA MATCH — TF-IDF
-            # =========================
             vectorizer = TfidfVectorizer(stop_words=None)
 
             corpus = vagas_filtradas["texto"].tolist()
@@ -913,9 +810,6 @@ if file_vagas and file_colab:
             vagas_filtradas["match"]      = final_scores
             vagas_filtradas["_breakdown"] = breakdowns
 
-        # =========================
-        # 📊 RESULTADO
-        # =========================
         resultado_ordenado = vagas_filtradas.sort_values("match", ascending=False)
         resultado_50       = resultado_ordenado[resultado_ordenado["match"] >= 0.50]
 
@@ -931,9 +825,6 @@ if file_vagas and file_colab:
             )
             st.stop()
 
-        # =========================
-        # 🏷️ BANNER — VAGAS COMPATÍVEIS
-        # =========================
         st.markdown(
             f"""
             <div style="
@@ -944,9 +835,9 @@ if file_vagas and file_colab:
                 padding: 18px 24px;
                 margin-bottom: 20px;
             ">
-                <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">{"⚠️ Nenhuma vaga com score ≥ 50% encontrada — exibindo todas as vagas disponíveis" if sem_vaga_50 else "Resultado da análise — apenas vagas com score ≥ 50%"}</div>
+                <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">{"Nenhuma vaga com score >= 50% encontrada - exibindo todas as vagas disponíveis" if sem_vaga_50 else "Resultado da análise - apenas vagas com score >= 50%"}</div>
                 <div style="color:#e6edf3; font-size:22px; font-weight:700;">
-                    🎯 Vagas compatíveis para <span style="color:#388bfd;">{selecionado}</span>
+                    Vagas compatíveis para <span style="color:#388bfd;">{selecionado}</span>
                 </div>
             </div>
             """,
@@ -962,7 +853,7 @@ if file_vagas and file_colab:
             st.metric("Score médio", f"{score_medio}%")
 
         with col_m3:
-            cv_status = "✅ Sim" if texto_cv.strip() else "❌ Não"
+            cv_status = "Sim" if texto_cv.strip() else "Não"
             st.metric("CV utilizado no match", cv_status)
 
         colunas_exibir = [
@@ -998,9 +889,6 @@ if file_vagas and file_colab:
         st.session_state.texto_cv_cache    = texto_cv
         st.session_state.col_obs_cache     = col_obs
 
-# =========================
-# 📊 EXIBIÇÃO — lê do session_state
-# =========================
 if st.session_state.resultado_cache is not None:
 
     resultado      = st.session_state.resultado_cache
@@ -1018,9 +906,6 @@ if st.session_state.resultado_cache is not None:
 
     st.divider()
 
-    # =========================
-    # 🏷️ BANNER — DETALHAMENTO
-    # =========================
     st.markdown(
         f"""
         <div style="
@@ -1033,16 +918,13 @@ if st.session_state.resultado_cache is not None:
         ">
             <div style="color:#8b949e; font-size:13px; margin-bottom:4px;">Detalhamento completo</div>
             <div style="color:#e6edf3; font-size:22px; font-weight:700;">
-                📋 Vagas detalhadas para <span style="color:#2ea043;">{selecionado}</span>
+                Vagas detalhadas para <span style="color:#2ea043;">{selecionado}</span>
             </div>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    # =========================
-    # 🔎 BUSCA POR NECESSIDADE
-    # =========================
     if "busca_necesidad_val" not in st.session_state:
         st.session_state.busca_necesidad_val = ""
 
@@ -1053,7 +935,7 @@ if st.session_state.resultado_cache is not None:
 
     with col_busca:
         busca_necesidad = st.text_input(
-            "🔍 Buscar vaga pelo número da necessidade",
+            "Buscar vaga pelo número da necessidade",
             placeholder="Ex: 767648-01/26",
             key=f"busca_necesidad_{st.session_state.busca_input_key}"
         )
@@ -1061,7 +943,7 @@ if st.session_state.resultado_cache is not None:
 
     with col_limpar:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🗑️ Limpar", key="limpar_busca"):
+        if st.button("Limpar", key="limpar_busca"):
             st.session_state.busca_input_key += 1
             st.session_state.busca_necesidad_val = ""
             st.rerun()
@@ -1079,9 +961,6 @@ if st.session_state.resultado_cache is not None:
     else:
         vagas_detalhe = resultado.head(1)
 
-    # =========================
-    # 📂 DETALHAMENTO
-    # =========================
     for idx, row in vagas_detalhe.iterrows():
 
         rol     = row.get("rol reporting", "")
@@ -1096,7 +975,7 @@ if st.session_state.resultado_cache is not None:
         with st.expander(titulo, expanded=True):
 
             st.markdown(f"""
-    ### 📌 Informações da Vaga
+    ### Informações da Vaga
 
     **Projeto:** {row.get('proyecto', '-')}
 
@@ -1113,10 +992,7 @@ if st.session_state.resultado_cache is not None:
 
             st.divider()
 
-            # =========================
-            # 🔍 PAINEL DE TRANSPARÊNCIA
-            # =========================
-            st.markdown("### 🔍 Por que esse resultado?")
+            st.markdown("### Por que esse resultado?")
 
             st.markdown(
                 "<p style='color:#8b949e; font-size:13px; margin-top:-10px; margin-bottom:20px;'>"
@@ -1136,7 +1012,7 @@ if st.session_state.resultado_cache is not None:
                 )
 
             def _linha(label, pct_exibir, pct_barra, cor, colab_val, vaga_val, ok, faltou=""):
-                icone      = "✅" if ok else ("⚠️" if pct_exibir > 0 else "❌")
+                icone      = "OK:" if ok else ("AVISO:" if pct_exibir > 0 else "ERRO:")
                 status     = "Compatível" if ok else ("Parcialmente compatível" if pct_exibir > 0 else "Não compatível")
                 cor_status = "#238636" if ok else ("#f0883e" if pct_exibir > 0 else "#f85149")
                 detalhe_colab = f"<span style='color:#c9d1d9;'>Colaborador: <b>{colab_val}</b></span>"
@@ -1148,14 +1024,14 @@ if st.session_state.resultado_cache is not None:
                 alerta = (
                     f"<div style='margin-top:6px;background:#f0883e18;border-left:3px solid #f0883e;"
                     f"border-radius:4px;padding:6px 10px;font-size:12px;color:#f0883e;'>"
-                    f"⚠️ {faltou}</div>"
+                    f"Aviso: {faltou}</div>"
                     if not ok and faltou else ""
                 )
                 return (
                     f"<div style='margin-bottom:20px;'>"
                     f"<div style='display:flex;justify-content:space-between;"
                     f"align-items:center;margin-bottom:6px;'>"
-                    f"<span style='color:#e6edf3;font-weight:600;font-size:14px;'>{icone} {label}</span>"
+                    f"<span style='color:#e6edf3;font-weight:600;font-size:14px;'>{label}</span>"
                     f"<span style='background:{cor_status}22;color:{cor_status};font-size:12px;"
                     f"font-weight:600;padding:2px 10px;border-radius:20px;'>{status}</span>"
                     f"</div>"
@@ -1281,7 +1157,7 @@ if st.session_state.resultado_cache is not None:
                 f"<div style='border-top:1px solid #30363d;padding-top:16px;margin-top:4px;'>"
                 f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>"
                 f"<div>"
-                f"<div style='color:#e6edf3;font-size:15px;font-weight:700;'>🏁 Resultado geral</div>"
+                f"<div style='color:#e6edf3;font-size:15px;font-weight:700;'>Resultado geral</div>"
                 f"<div style='color:#8b949e;font-size:12px;margin-top:2px;'>{nota_score}</div>"
                 f"</div>"
                 f"<span style='color:{cor_total};font-size:26px;font-weight:800;'>{score_pct}%</span>"
@@ -1294,34 +1170,28 @@ if st.session_state.resultado_cache is not None:
 
             st.divider()
 
-            st.markdown("### 🧠 Perfil Profissional")
+            st.markdown("### Perfil Profissional")
             st.write(row.get("perfil profesional", "-"))
 
-            st.markdown("### 📄 Perfil Resumido")
+            st.markdown("### Perfil Resumido")
             st.write(row.get("perfil solicitado resumido", "-"))
 
-            st.markdown("### 📑 Perfil Detalhado")
+            st.markdown("### Perfil Detalhado")
             st.write(row.get("perfil solicitado detallado", "-"))
 
-            st.markdown("### ⚙️ Conhecimentos Funcionais")
+            st.markdown("### Conhecimentos Funcionais")
             st.write(row.get("conocimientos funcionales", "-"))
 
-            st.markdown("### 💻 Conhecimentos Técnicos")
+            st.markdown("### Conhecimentos Técnicos")
             st.write(row.get("conocimientos tecnicos", "-"))
 
-    # =========================
-    # 📥 DOWNLOAD EXCEL
-    # =========================
     excel_file = gerar_excel(resultado[colunas_exibir])
 
     st.download_button(
-        label="📥 Baixar Resultado em Excel",
+        label="Baixar Resultado em Excel",
         data=excel_file,
         file_name=f"matching_{selecionado}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# =========================
-# 🧾 FOOTER
-# =========================
-st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>💼 Matching Inteligente de Vagas • v4.5</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> • UGR Brasil</div></div></div>", unsafe_allow_html=True)
+st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>Matching Inteligente de Vagas v4.5</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> | UGR Brasil</div></div></div>", unsafe_allow_html=True)
