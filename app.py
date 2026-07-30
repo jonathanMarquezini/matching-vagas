@@ -889,66 +889,78 @@ if file_vagas and file_colab:
         st.info("O sistema analisará a aderência de **TODOS** os colaboradores. Se o colaborador não possuir vagas com score >= 50%, todas as vagas compatíveis serão exibidas como opção.")
 
         if st.button("Executar Análise Massiva"):
-            with st.spinner("Processando análise massiva de todos os colaboradores... Por favor, aguarde."):
-                lista_resultados = []
-                list_sem_vagas = []
-                
-                total_colab = len(colab)
+            status_massivo = st.empty()
+            progress_massivo = st.progress(0)
+            
+            status_massivo.markdown("⏳ **Iniciando Análise Massiva:** Preparando bases e iterando sobre os colaboradores...")
+            time.sleep(0.15)
 
-                for idx, (_, colab_row) in enumerate(colab.iterrows()):
-                    nome_c = colab_row.get(coluna_nome, f"Colaborador {idx+1}")
-                    matricula_c = colab_row.get(coluna_matricula, "-") if coluna_matricula else "-"
-                    cargo_c = colab_row.get(coluna_nome_perfil, "-") if coluna_nome_perfil else "-"
-                    rol_c = colab_row.get(coluna_rol_colab, "-") if coluna_rol_colab else "-"
+            lista_resultados = []
+            list_sem_vagas = []
+            total_colab = len(colab)
 
-                    vagas_matching = calcular_matching_colaborador(colab_row, vagas, colunas_mapa)
+            for idx, (_, colab_row) in enumerate(colab.iterrows()):
+                pct_prog = int(((idx + 1) / total_colab) * 100)
+                progress_massivo.progress(pct_prog)
+                status_massivo.markdown(f"⚙️ **Processando Massivo ({idx+1}/{total_colab}):** Analisando colaborador *{colab_row.get(coluna_nome, f'Colab {idx+1}')}*...")
+                time.sleep(0.01)
 
-                    if vagas_matching.empty:
-                        list_sem_vagas.append({
+                nome_c = colab_row.get(coluna_nome, f"Colaborador {idx+1}")
+                matricula_c = colab_row.get(coluna_matricula, "-") if coluna_matricula else "-"
+                cargo_c = colab_row.get(coluna_nome_perfil, "-") if coluna_nome_perfil else "-"
+                rol_c = colab_row.get(coluna_rol_colab, "-") if coluna_rol_colab else "-"
+
+                vagas_matching = calcular_matching_colaborador(colab_row, vagas, colunas_mapa)
+
+                if vagas_matching.empty:
+                    list_sem_vagas.append({
+                        "Nome Colaborador": nome_c,
+                        "Matrícula": matricula_c,
+                        "Cargo Colaborador": cargo_c,
+                        "Rol Colaborador": rol_c,
+                        "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
+                        "Motivo": "Nenhuma vaga compatível nos filtros iniciais"
+                    })
+                else:
+                    vagas_ordenadas = vagas_matching.sort_values("match", ascending=False)
+                    vagas_50 = vagas_ordenadas[vagas_ordenadas["match"] >= 0.50]
+                    
+                    sem_vaga_50 = vagas_50.empty
+                    vagas_finais = vagas_50 if not sem_vaga_50 else vagas_ordenadas
+
+                    for rank, (_, vaga_row) in enumerate(vagas_finais.iterrows(), 1):
+                        score_formatado = f"{round(vaga_row['match'] * 100, 2)}%"
+                        registro = {
                             "Nome Colaborador": nome_c,
                             "Matrícula": matricula_c,
                             "Cargo Colaborador": cargo_c,
                             "Rol Colaborador": rol_c,
                             "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
-                            "Motivo": "Nenhuma vaga compatível nos filtros iniciais"
-                        })
-                    else:
-                        vagas_ordenadas = vagas_matching.sort_values("match", ascending=False)
-                        vagas_50 = vagas_ordenadas[vagas_ordenadas["match"] >= 0.50]
-                        
-                        sem_vaga_50 = vagas_50.empty
-                        vagas_finais = vagas_50 if not sem_vaga_50 else vagas_ordenadas
+                            "Ranking Match": rank,
+                            "Match Score (%)": score_formatado,
+                            "Proyecto": vaga_row.get("proyecto", "-"),
+                            "Solicitante": vaga_row.get("solicitante", "-"),
+                            "Necesidad": vaga_row.get("necesidad", "-"),
+                            "Estado Necesidad": vaga_row.get("estado necesidad", "-"),
+                            "Rol Reporting": vaga_row.get("rol reporting", "-"),
+                            "Tasa Máxima Deseable": vaga_row.get("tasa máxima deseable", "-"),
+                            "Perfil Profesional": vaga_row.get("perfil profesional", "-"),
+                            "Perfil Solicitado Resumido": vaga_row.get("perfil solicitado resumido", "-"),
+                            "Lugar de Trabajo": vaga_row.get("lugar de trabajo", "-"),
+                            "Lugar de Trabajo Definitivo": vaga_row.get("lugar_de_trabalho_definitivo_real", "-"),
+                            "Perfil Solicitado Detallado": vaga_row.get("perfil solicitado detallado", "-"),
+                            "Conocimientos Funcionales": vaga_row.get("conocimientos funcionales", "-"),
+                            "Conocimientos Tecnicos": vaga_row.get("conocimientos tecnicos", "-"),
+                            "Observaciones Necesidad": vaga_row.get(col_obs, "-") if col_obs else vaga_row.get("observaciones necesidad", "-"),
+                            "Outros": vaga_row.get("outros", "-")
+                        }
+                        lista_resultados.append(registro)
+            
+            status_massivo.empty()
+            progress_massivo.empty()
 
-                        for rank, (_, vaga_row) in enumerate(vagas_finais.iterrows(), 1):
-                            score_formatado = f"{round(vaga_row['match'] * 100, 2)}%"
-                            registro = {
-                                "Nome Colaborador": nome_c,
-                                "Matrícula": matricula_c,
-                                "Cargo Colaborador": cargo_c,
-                                "Rol Colaborador": rol_c,
-                                "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
-                                "Ranking Match": rank,
-                                "Match Score (%)": score_formatado,
-                                "Proyecto": vaga_row.get("proyecto", "-"),
-                                "Solicitante": vaga_row.get("solicitante", "-"),
-                                "Necesidad": vaga_row.get("necesidad", "-"),
-                                "Estado Necesidad": vaga_row.get("estado necesidad", "-"),
-                                "Rol Reporting": vaga_row.get("rol reporting", "-"),
-                                "Tasa Máxima Deseable": vaga_row.get("tasa máxima deseable", "-"),
-                                "Perfil Profesional": vaga_row.get("perfil profesional", "-"),
-                                "Perfil Solicitado Resumido": vaga_row.get("perfil solicitado resumido", "-"),
-                                "Lugar de Trabajo": vaga_row.get("lugar de trabajo", "-"),
-                                "Lugar de Trabajo Definitivo": vaga_row.get("lugar_de_trabalho_definitivo_real", "-"),
-                                "Perfil Solicitado Detallado": vaga_row.get("perfil solicitado detallado", "-"),
-                                "Conocimientos Funcionales": vaga_row.get("conocimientos funcionales", "-"),
-                                "Conocimientos Tecnicos": vaga_row.get("conocimientos tecnicos", "-"),
-                                "Observaciones Necesidad": vaga_row.get(col_obs, "-") if col_obs else vaga_row.get("observaciones necesidad", "-"),
-                                "Outros": vaga_row.get("outros", "-")
-                            }
-                            lista_resultados.append(registro)
-                
-                st.session_state.resultado_massivo_cache = pd.DataFrame(lista_resultados) if lista_resultados else pd.DataFrame()
-                st.session_state.colab_sem_vagas_cache = pd.DataFrame(list_sem_vagas) if list_sem_vagas else pd.DataFrame()
+            st.session_state.resultado_massivo_cache = pd.DataFrame(lista_resultados) if lista_resultados else pd.DataFrame()
+            st.session_state.colab_sem_vagas_cache = pd.DataFrame(list_sem_vagas) if list_sem_vagas else pd.DataFrame()
 
     # --- RESULTADOS DA ANÁLISE MASSIVA ---
     if tipo_analise == "Análise Massiva (Todos da base de colaboradores)":
