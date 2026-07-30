@@ -72,10 +72,23 @@ div[data-baseweb="select"] > div {
     background-color: #1c1f26;
 }
 
+/* Ajustes visuais finos para replicar exatamente o layout compacto do Excel */
 [data-testid="stDataFrame"] {
-    border-radius: 12px;
+    border-radius: 8px;
     overflow: hidden;
     border: 1px solid #30363d;
+}
+
+[data-testid="stDataFrame"] td {
+    font-size: 13px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+}
+
+[data-testid="stDataFrame"] th {
+    font-size: 13px !important;
+    background-color: #1F4E78 !important;
+    color: white !important;
 }
 
 div[data-testid="stExpander"] {
@@ -341,7 +354,7 @@ def aplicar_estilo_excel(writer, sheet_name):
         worksheet = workbook[sheet_name]
         
         fill_cabecalho = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-        font_cabecalho = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF") # Fonte do cabeçalho levemente menor
+        font_cabecalho = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
         font_celulas = Font(name="Segoe UI", size=10)
         
         borda_fina = Side(style="thin", color="D9D9D9")
@@ -349,8 +362,7 @@ def aplicar_estilo_excel(writer, sheet_name):
         
         worksheet.views.sheetView[0].showGridLines = True
         
-        # Altura otimizada para o cabeçalho
-        worksheet.row_dimensions[1].height = 20
+        worksheet.row_dimensions[1].height = 24
         
         for col in range(1, worksheet.max_column + 1):
             cell = worksheet.cell(row=1, column=col)
@@ -376,7 +388,7 @@ def aplicar_estilo_excel(writer, sheet_name):
                 indices_texto_longo.append(col)
 
         for row in range(2, worksheet.max_row + 1):
-            worksheet.row_dimensions[row].height = 20 # Altura compacta e elegante para as linhas de dados
+            worksheet.row_dimensions[row].height = 28
             
             for col in range(1, worksheet.max_column + 1):
                 cell = worksheet.cell(row=row, column=col)
@@ -647,7 +659,6 @@ def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv="", 
 
     return vagas_filtradas
 
-# --- INICIALIZAÇÃO DE VARIÁVEIS DE SESSÃO ---
 if "resultado_cache" not in st.session_state:
     st.session_state.resultado_cache = None
 
@@ -1034,7 +1045,6 @@ if file_vagas and file_colab:
             st.session_state.resultado_massivo_cache = pd.DataFrame(lista_resultados) if lista_resultados else pd.DataFrame()
             st.session_state.colab_sem_vagas_cache = pd.DataFrame(list_sem_vagas) if list_sem_vagas else pd.DataFrame()
 
-    # --- RESULTADOS DA ANÁLISE MASSIVA ---
     if tipo_analise == "Análise Massiva (Todos da base de colaboradores)":
         df_massivo = st.session_state.resultado_massivo_cache if st.session_state.resultado_massivo_cache is not None else pd.DataFrame()
         df_sem_vagas = st.session_state.colab_sem_vagas_cache if st.session_state.colab_sem_vagas_cache is not None else pd.DataFrame()
@@ -1088,7 +1098,6 @@ if file_vagas and file_colab:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
-    # --- RESULTADOS DA ANÁLISE INDIVIDUAL ---
     if st.session_state.resultado_cache is not None and tipo_analise == "Análise Individual (Um colaborador)":
 
         resultado      = st.session_state.resultado_cache
