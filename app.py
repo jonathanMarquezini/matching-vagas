@@ -332,6 +332,18 @@ def tem_skill_direta(perfil, vaga_texto):
 
     return False
 
+def gerar_excel_massivo(df_massivo, df_sem_vagas):
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        if not df_massivo.empty:
+            df_massivo.to_excel(writer, index=False, sheet_name="Matching Massivo")
+        if not df_sem_vagas.empty:
+            df_sem_vagas.to_excel(writer, index=False, sheet_name="Colaboradores Não Encontrados")
+
+    output.seek(0)
+    return output
+
 def gerar_excel(df, sheet_name="Matching"):
     output = BytesIO()
 
@@ -859,7 +871,6 @@ if file_vagas and file_colab:
                 vagas_matching = calcular_matching_colaborador(colab_row, vagas, colunas_mapa)
 
                 if vagas_matching.empty:
-                    # Registra colaboradores que não tiveram nenhuma vaga de filtro compatível
                     lista_sem_vagas.append({
                         "Nome Colaborador": nome_c,
                         "Matrícula": matricula_c,
@@ -932,25 +943,32 @@ if file_vagas and file_colab:
             with col_m4:
                 st.metric("Nenhuma Vaga Compatível", colabs_sem_nenhuma)
 
-            st.markdown("### 🎯 Lista Geral de Matching")
-            if not df_massivo.empty:
-                st.dataframe(df_massivo, use_container_width=True, height=450)
+            # Abas para separar a visualização em tela
+            aba_principal, aba_sem_vagas = st.tabs(["🎯 Lista Geral de Matching", "⚠️ Colaboradores Não Encontrados"])
 
-                excel_massivo = gerar_excel(df_massivo, sheet_name="Matching Massivo")
-                st.download_button(
-                    label="Baixar Relatório Massivo em Excel",
-                    data=excel_massivo,
-                    file_name="matching_massivo_completo.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            else:
-                st.info("Nenhum registro gerado na lista principal.")
+            with aba_principal:
+                if not df_massivo.empty:
+                    st.dataframe(df_massivo, use_container_width=True, height=450)
+                else:
+                    st.info("Nenhum registro gerado na lista principal.")
 
-            if not df_sem_vagas.empty:
-                st.markdown("---")
-                st.markdown("### ⚠️ Colaboradores Sem Nenhuma Vaga Compatível")
-                st.markdown("Abaixo estão listados os colaboradores para os quais o sistema não encontrou nenhuma vaga alinhada nos filtros iniciais.")
-                st.dataframe(df_sem_vagas, use_container_width=True, height=250)
+            with aba_sem_vagas:
+                if not df_sem_vagas.empty:
+                    st.markdown("Abaixo estão listados os colaboradores para os quais o sistema não encontrou nenhuma vaga alinhada nos filtros iniciais.")
+                    st.dataframe(df_sem_vagas, use_container_width=True, height=400)
+                else:
+                    st.success("Todos os colaboradores tiveram pelo menos uma vaga compatível encontrada!")
+
+            st.markdown("---")
+            
+            # Botão único no final gerando o excel consolidado com as duas abas
+            excel_massivo_completo = gerar_excel_massivo(df_massivo, df_sem_vagas)
+            st.download_button(
+                label="Baixar Relatório Massivo Completo em Excel (Com Abas)",
+                data=excel_massivo_completo,
+                file_name="matching_massivo_completo.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
     # --- RESULTADOS DA ANÁLISE INDIVIDUAL ---
     if st.session_state.resultado_cache is not None and tipo_analise == "Análise Individual (Um colaborador)":
