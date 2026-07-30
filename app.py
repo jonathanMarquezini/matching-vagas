@@ -356,21 +356,48 @@ def aplicar_estilo_excel(writer, sheet_name):
             cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             cell.border = borda_celula
             
+        colunas_texto_longo = [
+            "perfil solicitado detallado", 
+            "conocimientos funcionales", 
+            "conocimientos tecnicos", 
+            "observaciones necesidad", 
+            "outros",
+            "perfil profesional",
+            "perfil solicitado resumido"
+        ]
+        
+        indices_texto_longo = []
+        for col in range(1, worksheet.max_column + 1):
+            val_cabecalho = str(worksheet.cell(row=1, column=col).value or "").strip().lower()
+            if any(c in val_cabecalho for c in colunas_texto_longo):
+                indices_texto_longo.append(col)
+
         for row in range(2, worksheet.max_row + 1):
+            worksheet.row_dimensions[row].height = 45
+            
             for col in range(1, worksheet.max_column + 1):
                 cell = worksheet.cell(row=row, column=col)
                 cell.font = font_celulas
                 cell.border = borda_celula
-                cell.alignment = Alignment(vertical="center")
+                
+                if col in indices_texto_longo:
+                    cell.alignment = Alignment(vertical="top", horizontal="left", wrap_text=False)
+                else:
+                    cell.alignment = Alignment(vertical="center", horizontal="left")
                 
         for col in worksheet.columns:
-            max_len = 0
             col_letter = get_column_letter(col[0].column)
-            for cell in col:
-                val = str(cell.value or "")
-                if len(val) > max_len:
-                    max_len = len(val)
-            worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+            val_cabecalho = str(col[0].value or "").strip().lower()
+            
+            if any(c in val_cabecalho for c in colunas_texto_longo):
+                worksheet.column_dimensions[col_letter].width = 42
+            else:
+                max_len = 0
+                for cell in col:
+                    val = str(cell.value or "")
+                    if len(val) > max_len:
+                        max_len = len(val)
+                worksheet.column_dimensions[col_letter].width = max(min(max_len + 3, 40), 12)
 
 def gerar_excel_massivo(df_massivo, df_sem_vagas):
     output = BytesIO()
@@ -1386,4 +1413,4 @@ if file_vagas and file_colab:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>Matching Inteligente de Vagas v5.0</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> | UGR Brasil</div></div></div>", unsafe_allow_html=True)
+st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>Matching Inteligente de Vagas</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> | UGR Brasil</div></div></div>", unsafe_allow_html=True)
