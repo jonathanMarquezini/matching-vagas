@@ -356,7 +356,7 @@ def gerar_excel(df, sheet_name="Matching"):
 
 def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv="", progress_bar=None, status_text=None):
     if status_text:
-        status_text.markdown("⏳ **Etapa 1/3:** Extraindo dados do perfil e aplicando filtros de cargo/rol...")
+        status_text.markdown("⚙️ **Processando Análise:** Extraindo dados do perfil e aplicando filtros de cargo/rol...")
         time.sleep(0.15)
 
     coluna_descricao  = colunas_mapa.get("coluna_descricao")
@@ -472,7 +472,7 @@ def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv="", 
             return pd.DataFrame()
 
     if status_text:
-        status_text.markdown("🧠 **Etapa 2/3:** IA em ação... Calculando similaridade semântica (TF-IDF)...")
+        status_text.markdown("⚙️ **Processando Análise:** Calculando similaridade semântica (TF-IDF)...")
         time.sleep(0.15)
 
     vectorizer = TfidfVectorizer(stop_words=None)
@@ -502,7 +502,7 @@ def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv="", 
     total_vagas    = len(vagas_filtradas)
 
     if status_text:
-        status_text.markdown("⚙️ **Etapa 3/3:** Cruzando requisitos detalhados e gerando breakdown...")
+        status_text.markdown("⚙️ **Processando Análise:** Cruzando requisitos detalhados e gerando breakdown...")
         time.sleep(0.1)
 
     for i, row_texto in enumerate(vagas_filtradas["texto"]):
@@ -892,7 +892,7 @@ if file_vagas and file_colab:
             status_massivo = st.empty()
             progress_massivo = st.progress(0)
             
-            status_massivo.markdown("⏳ **Iniciando Análise Massiva:** Preparando bases e iterando sobre os colaboradores...")
+            status_massivo.markdown("⚙️ **Processando Análise:** Preparando bases e iterando sobre os colaboradores...")
             time.sleep(0.15)
 
             lista_resultados = []
@@ -902,7 +902,7 @@ if file_vagas and file_colab:
             for idx, (_, colab_row) in enumerate(colab.iterrows()):
                 pct_prog = int(((idx + 1) / total_colab) * 100)
                 progress_massivo.progress(pct_prog)
-                status_massivo.markdown(f"⚙️ **Processando Massivo ({idx+1}/{total_colab}):** Analisando colaborador *{colab_row.get(coluna_nome, f'Colab {idx+1}')}*...")
+                status_massivo.markdown(f"⚙️ **Processando Análise ({idx+1}/{total_colab}):** Analisando colaborador {colab_row.get(coluna_nome, f'Colab {idx+1}')}...")
                 time.sleep(0.01)
 
                 nome_c = colab_row.get(coluna_nome, f"Colaborador {idx+1}")
