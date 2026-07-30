@@ -353,7 +353,10 @@ def gerar_excel(df, sheet_name="Matching"):
     output.seek(0)
     return output
 
-def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv=""):
+def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv="", progress_bar=None, status_text=None):
+    if status_text:
+        status_text.markdown("⏳ **Etapa 1/3:** Extraindo dados do perfil e aplicando filtros de cargo/rol...")
+
     coluna_descricao  = colunas_mapa.get("coluna_descricao")
     coluna_nome_perfil = colunas_mapa.get("coluna_nome_perfil")
     coluna_rol_colab   = colunas_mapa.get("coluna_rol_colab")
@@ -466,6 +469,9 @@ def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv=""):
         if len(vagas_filtradas) == 0:
             return pd.DataFrame()
 
+    if status_text:
+        status_text.markdown("🧠 **Etapa 2/3:** IA em ação... Calculando similaridade semântica (TF-IDF)...")
+
     vectorizer = TfidfVectorizer(stop_words=None)
     corpus = vagas_filtradas["texto"].tolist()
     corpus.append(perfil_texto if perfil_texto.strip() else "sem perfil")
@@ -490,8 +496,15 @@ def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv=""):
     texto_cv_limpo = limpar_texto(texto_cv)
     final_scores   = []
     breakdowns     = []
+    total_vagas    = len(vagas_filtradas)
+
+    if status_text:
+        status_text.markdown("⚙️ **Etapa 3/3:** Cruzando requisitos detalhados e gerando breakdown...")
 
     for i, row_texto in enumerate(vagas_filtradas["texto"]):
+        if progress_bar and total_vagas > 0:
+            progress_bar.progress(int(((i + 1) / total_vagas) * 100))
+
         row_vaga_i = vagas_filtradas.iloc[i]
         score_tfidf = scores[i]
         perfil_resumido = normalizar_cargo(str(row_vaga_i.get("perfil solicitado resumido", "")))
@@ -791,8 +804,16 @@ if file_vagas and file_colab:
         st.divider()
 
         if st.button("Buscar Vagas Compatíveis"):
-            with st.spinner("Calculando compatibilidade das vagas..."):
-                vagas_filtradas = calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv)
+            status_text = st.empty()
+            progress_bar = st.progress(0)
+
+            vagas_filtradas = calcular_matching_colaborador(
+                perfil_row, vagas, colunas_mapa, texto_cv,
+                progress_bar=progress_bar, status_text=status_text
+            )
+
+            status_text.empty()
+            progress_bar.empty()
 
             if len(vagas_filtradas) == 0:
                 st.warning("Nenhuma vaga compatível encontrada para este colaborador.")
@@ -864,7 +885,7 @@ if file_vagas and file_colab:
         if st.button("Executar Análise Massiva"):
             with st.spinner("Processando análise massiva de todos os colaboradores... Por favor, aguarde."):
                 lista_resultados = []
-                lista_sem_vagas = []
+                list_sem_vagas = []
                 
                 total_colab = len(colab)
 
@@ -877,7 +898,7 @@ if file_vagas and file_colab:
                     vagas_matching = calcular_matching_colaborador(colab_row, vagas, colunas_mapa)
 
                     if vagas_matching.empty:
-                        lista_sem_vagas.append({
+                        list_sem_vagas.append({
                             "Nome Colaborador": nome_c,
                             "Matrícula": matricula_c,
                             "Cargo Colaborador": cargo_c,
@@ -921,7 +942,7 @@ if file_vagas and file_colab:
                             lista_resultados.append(registro)
                 
                 st.session_state.resultado_massivo_cache = pd.DataFrame(lista_resultados) if lista_resultados else pd.DataFrame()
-                st.session_state.colab_sem_vagas_cache = pd.DataFrame(lista_sem_vagas) if lista_sem_vagas else pd.DataFrame()
+                st.session_state.colab_sem_vagas_cache = pd.DataFrame(list_sem_vagas) if list_sem_vagas else pd.DataFrame()
 
     # --- RESULTADOS DA ANÁLISE MASSIVA ---
     if tipo_analise == "Análise Massiva (Todos da base de colaboradores)":
@@ -995,7 +1016,6 @@ if file_vagas and file_colab:
             resultado_exibicao = resultado_exibicao.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo"})
             colunas_exibir = ["lugar de trabajo definitivo" if c == "lugar_de_trabalho_definitivo_real" else c for c in colunas_exibir]
 
-        # Garantir remoção de colunas duplicadas antes de renderizar a tabela
         resultado_exibicao = resultado_exibicao.loc[:, ~resultado_exibicao.columns.duplicated()]
         colunas_exibir = list(dict.fromkeys(colunas_exibir))
 
@@ -1290,7 +1310,7 @@ if file_vagas and file_colab:
                 st.write(row.get("conocimientos tecnicos", "-"))
 
         resultado_excel = resultado[colunas_exibir].copy()
-        if "match" in resultado_excel.name if hasattr(resultado_excel, 'name') else "match" in resultado_excel.columns:
+        if "match" in resultado_excel.columns:
             resultado_excel["match"] = (resultado_excel["match"] * 100).round(2).astype(str) + "%"
 
         if "lugar_de_trabalho_definitivo_real" in resultado_excel.columns:
