@@ -341,7 +341,7 @@ def aplicar_estilo_excel(writer, sheet_name):
         worksheet = workbook[sheet_name]
         
         fill_cabecalho = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-        font_cabecalho = Font(name="Segoe UI", size=8, bold=True, color="FFFFFF") # Fonte do cabeçalho levemente menor
+        font_cabecalho = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF") # Fonte do cabeçalho levemente menor
         font_celulas = Font(name="Segoe UI", size=10)
         
         borda_fina = Side(style="thin", color="D9D9D9")
