@@ -336,9 +336,9 @@ def gerar_excel_massivo(df_matches, df_sem_vagas):
     output = BytesIO()
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        if not df_matches.empty:
+        if df_matches is not None and not df_matches.empty:
             df_matches.to_excel(writer, index=False, sheet_name="Matching Massivo")
-        if not df_sem_vagas.empty:
+        if df_sem_vagas is not None and not df_sem_vagas.empty:
             df_sem_vagas.to_excel(writer, index=False, sheet_name="Sem Vagas Compatíveis")
 
     output.seek(0)
@@ -572,10 +572,10 @@ if "col_obs_cache" not in st.session_state:
     st.session_state.col_obs_cache = None
 
 if "resultado_massivo_cache" not in st.session_state:
-    st.session_state.resultado_massivo_cache = None
+    st.session_state.resultado_massivo_cache = pd.DataFrame()
 
 if "sem_vagas_massivo_cache" not in st.session_state:
-    st.session_state.sem_vagas_massivo_cache = None
+    st.session_state.sem_vagas_massivo_cache = pd.DataFrame()
 
 st.subheader("Upload das Bases")
 
@@ -891,7 +891,7 @@ if file_vagas and file_colab:
                                 "Perfil Profesional": vaga_row.get("perfil profesional", "-"),
                                 "Perfil Solicitado Resumido": vaga_row.get("perfil solicitado resumido", "-"),
                                 "Lugar de Trabajo": vaga_row.get("lugar de trabajo", "-"),
-                                "Lugar de Trabajo Definitivo": vaga_row.get("lugar de trabajo definitivo", "-"),
+                                "Lugar de Trabajo Definitivo": vaga_row.get("lugar de trabalho definitivo", "-"),
                                 "Perfil Solicitado Detallado": vaga_row.get("perfil solicitado detallado", "-"),
                                 "Conocimientos Funcionales": vaga_row.get("conocimientos funcionales", "-"),
                                 "Conocimientos Tecnicos": vaga_row.get("conocimientos tecnicos", "-"),
@@ -921,9 +921,12 @@ if file_vagas and file_colab:
             st.session_state.resultado_massivo_cache = pd.DataFrame(lista_resultados) if lista_resultados else pd.DataFrame()
             st.session_state.sem_vagas_massivo_cache = pd.DataFrame(lista_sem_vagas) if lista_sem_vagas else pd.DataFrame()
 
-if st.session_state.resultado_massivo_cache is not None and tipo_analise != "Análise Individual (Um colaborador)":
-    df_massivo = st.session_state.resultado_massivo_cache
-    df_sem_vagas = st.session_state.sem_vagas_massivo_cache
+if tipo_analise != "Análise Individual (Um colaborador)" and (
+    (st.session_state.resultado_massivo_cache is not None and not st.session_state.resultado_massivo_cache.empty) or
+    (st.session_state.sem_vagas_massivo_cache is not None and not st.session_state.sem_vagas_massivo_cache.empty)
+):
+    df_massivo = st.session_state.resultado_massivo_cache if st.session_state.resultado_massivo_cache is not None else pd.DataFrame()
+    df_sem_vagas = st.session_state.sem_vagas_massivo_cache if st.session_state.sem_vagas_massivo_cache is not None else pd.DataFrame()
 
     st.divider()
     st.subheader("Resultado da Análise Massiva")
@@ -946,7 +949,7 @@ if st.session_state.resultado_massivo_cache is not None and tipo_analise != "An�
     if not df_sem_vagas.empty:
         st.markdown("---")
         st.markdown("### ⚠️ Colaboradores Sem Vagas Compatíveis")
-        st.caption("Abaixo estão listados os colaboradores que não obtiveram nenhuma vaga com aderência $\ge$ 50%.")
+        st.caption("Abaixo estão listados os colaboradores que não obtiveram nenhuma vaga com aderência ≥ 50%.")
         st.dataframe(df_sem_vagas, use_container_width=True, height=250)
 
     excel_massivo = gerar_excel_massivo(df_massivo, df_sem_vagas)
