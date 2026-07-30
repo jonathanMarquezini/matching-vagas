@@ -1107,7 +1107,11 @@ if file_vagas and file_colab:
 
         resultado_exibicao = resultado.copy()
         if "match" in resultado_exibicao.columns:
-            resultado_exibicao["match"] = (resultado_exibicao["match"] * 100).round(2).astype(str) + "%"
+            resultado_exibicao["Match Score (%)"] = (resultado_exibicao["match"] * 100).round(2).astype(str) + "%"
+            resultado_exibicao = resultado_exibicao.drop(columns=["match"])
+
+        # Atualiza a coluna 'match' para 'Match Score (%)' na lista de colunas a exibir
+        colunas_exibir = ["Match Score (%)" if c == "match" else c for c in colunas_exibir]
 
         if "lugar_de_trabalho_definitivo_real" in resultado_exibicao.columns:
             resultado_exibicao = resultado_exibicao.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo"})
@@ -1409,7 +1413,8 @@ if file_vagas and file_colab:
 
         resultado_excel = resultado[colunas_exibir].copy()
         if "match" in resultado_excel.columns:
-            resultado_excel["match"] = (resultado_excel["match"] * 100).round(2).astype(str) + "%"
+            resultado_excel["Match Score (%)"] = (resultado_excel["match"] * 100).round(2).astype(str) + "%"
+            resultado_excel = resultado_excel.drop(columns=["match"])
 
         if "lugar_de_trabalho_definitivo_real" in resultado_excel.columns:
             resultado_excel = resultado_excel.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo"})
@@ -1423,4 +1428,4 @@ if file_vagas and file_colab:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>Matching Inteligente de Vagas v5.0</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> | UGR Brasil</div></div></div>", unsafe_allow_html=True)
+st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>Matching Inteligente de Vagas</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> | UGR Brasil</div></div></div>", unsafe_allow_html=True)
