@@ -1328,6 +1328,7 @@ if file_vagas and file_colab:
                 )
 
                 cor_total  = "#238636" if score_pct >= 70 else ("#f0883e" if score_pct >= 50 else "#f85149")
+                cor_status = cor_total
                 nota_score = (
                     "Ótima aderência — colaborador muito compatível com a vaga." if score_pct >= 70
                     else "Aderência moderada — vale avaliar os critérios em laranja/vermelho." if score_pct >= 50
