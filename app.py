@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import pdfplumber
 import unicodedata
+import time
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 from io import BytesIO
@@ -356,6 +357,7 @@ def gerar_excel(df, sheet_name="Matching"):
 def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv="", progress_bar=None, status_text=None):
     if status_text:
         status_text.markdown("⏳ **Etapa 1/3:** Extraindo dados do perfil e aplicando filtros de cargo/rol...")
+        time.sleep(0.15)
 
     coluna_descricao  = colunas_mapa.get("coluna_descricao")
     coluna_nome_perfil = colunas_mapa.get("coluna_nome_perfil")
@@ -471,6 +473,7 @@ def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv="", 
 
     if status_text:
         status_text.markdown("🧠 **Etapa 2/3:** IA em ação... Calculando similaridade semântica (TF-IDF)...")
+        time.sleep(0.15)
 
     vectorizer = TfidfVectorizer(stop_words=None)
     corpus = vagas_filtradas["texto"].tolist()
@@ -500,10 +503,13 @@ def calcular_matching_colaborador(perfil_row, vagas, colunas_mapa, texto_cv="", 
 
     if status_text:
         status_text.markdown("⚙️ **Etapa 3/3:** Cruzando requisitos detalhados e gerando breakdown...")
+        time.sleep(0.1)
 
     for i, row_texto in enumerate(vagas_filtradas["texto"]):
         if progress_bar and total_vagas > 0:
             progress_bar.progress(int(((i + 1) / total_vagas) * 100))
+            if total_vagas > 10:
+                time.sleep(0.01)
 
         row_vaga_i = vagas_filtradas.iloc[i]
         score_tfidf = scores[i]
@@ -642,9 +648,9 @@ if file_vagas and file_colab:
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
     col_lugar_def = encontrar_coluna(vagas, [
-        "lugar_de_trabajo_definitivo", "lugar de trabajo definitivo",
+        "lugar_de_trabajo_definitivo", "lugar de trabalho definitivo",
         "lugar_trabajo_definitivo", "lugar de trabalho definitivo",
-        "lugar_trabalho_definitivo", "lugar de trabajo", "lugar trabajo"
+        "lugar_trabalho_definitivo", "lugar de trabajo", "lugar trabalho"
     ])
 
     if col_lugar_def:
