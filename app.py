@@ -72,7 +72,7 @@ div[data-baseweb="select"] > div {
     background-color: #1c1f26;
 }
 
-/* Ajustes visuais finos para replicar exatamente o layout compacto do Excel */
+/* Ajustes visuais compactos no Streamlit */
 [data-testid="stDataFrame"] {
     border-radius: 8px;
     overflow: hidden;
@@ -80,13 +80,13 @@ div[data-baseweb="select"] > div {
 }
 
 [data-testid="stDataFrame"] td {
-    font-size: 13px !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
+    font-size: 11px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
 }
 
 [data-testid="stDataFrame"] th {
-    font-size: 13px !important;
+    font-size: 11px !important;
     background-color: #1F4E78 !important;
     color: white !important;
 }
@@ -354,15 +354,16 @@ def aplicar_estilo_excel(writer, sheet_name):
         worksheet = workbook[sheet_name]
         
         fill_cabecalho = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-        font_cabecalho = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
-        font_celulas = Font(name="Segoe UI", size=10)
+        font_cabecalho = Font(name="Segoe UI", size=9, bold=True, color="FFFFFF")
+        font_celulas = Font(name="Segoe UI", size=9)
         
         borda_fina = Side(style="thin", color="D9D9D9")
         borda_celula = Border(left=borda_fina, right=borda_fina, top=borda_fina, bottom=borda_fina)
         
         worksheet.views.sheetView[0].showGridLines = True
         
-        worksheet.row_dimensions[1].height = 24
+        # Altura compacta para o cabeçalho
+        worksheet.row_dimensions[1].height = 20
         
         for col in range(1, worksheet.max_column + 1):
             cell = worksheet.cell(row=1, column=col)
@@ -387,32 +388,29 @@ def aplicar_estilo_excel(writer, sheet_name):
             if any(c in val_cabecalho for c in colunas_texto_longo):
                 indices_texto_longo.append(col)
 
+        # Altura rigorosamente baixa (16) para todas as linhas de dados, idêntica ao Excel compacto
         for row in range(2, worksheet.max_row + 1):
-            worksheet.row_dimensions[row].height = 28
+            worksheet.row_dimensions[row].height = 16
             
             for col in range(1, worksheet.max_column + 1):
                 cell = worksheet.cell(row=row, column=col)
                 cell.font = font_celulas
                 cell.border = borda_celula
-                
-                if col in indices_texto_longo:
-                    cell.alignment = Alignment(vertical="top", horizontal="left", wrap_text=False)
-                else:
-                    cell.alignment = Alignment(vertical="center", horizontal="left")
+                cell.alignment = Alignment(vertical="center", horizontal="left")
                 
         for col in worksheet.columns:
             col_letter = get_column_letter(col[0].column)
             val_cabecalho = str(col[0].value or "").strip().lower()
             
             if any(c in val_cabecalho for c in colunas_texto_longo):
-                worksheet.column_dimensions[col_letter].width = 42
+                worksheet.column_dimensions[col_letter].width = 30
             else:
                 max_len = 0
                 for cell in col:
                     val = str(cell.value or "")
                     if len(val) > max_len:
                         max_len = len(val)
-                worksheet.column_dimensions[col_letter].width = max(min(max_len + 3, 40), 12)
+                worksheet.column_dimensions[col_letter].width = max(min(max_len + 3, 35), 10)
 
 def gerar_excel_massivo(df_massivo, df_sem_vagas):
     output = BytesIO()
