@@ -7,6 +7,8 @@ import time
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 from io import BytesIO
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 st.set_page_config(
     page_title="Matching Inteligente de Vagas",
@@ -333,14 +335,53 @@ def tem_skill_direta(perfil, vaga_texto):
 
     return False
 
+def aplicar_estilo_excel(writer, sheet_name):
+    workbook = writer.book
+    if sheet_name in workbook.sheetnames:
+        worksheet = workbook[sheet_name]
+        
+        fill_cabecalho = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+        font_cabecalho = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+        font_celulas = Font(name="Segoe UI", size=10)
+        
+        borda_fina = Side(style="thin", color="D9D9D9")
+        borda_celula = Border(left=borda_fina, right=borda_fina, top=borda_fina, bottom=borda_fina)
+        
+        worksheet.views.sheetView[0].showGridLines = True
+        
+        for col in range(1, worksheet.max_column + 1):
+            cell = worksheet.cell(row=1, column=col)
+            cell.fill = fill_cabecalho
+            cell.font = font_cabecalho
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = borda_celula
+            
+        for row in range(2, worksheet.max_row + 1):
+            for col in range(1, worksheet.max_column + 1):
+                cell = worksheet.cell(row=row, column=col)
+                cell.font = font_celulas
+                cell.border = borda_celula
+                cell.alignment = Alignment(vertical="center")
+                
+        for col in worksheet.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                val = str(cell.value or "")
+                if len(val) > max_len:
+                    max_len = len(val)
+            worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
 def gerar_excel_massivo(df_massivo, df_sem_vagas):
     output = BytesIO()
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         if not df_massivo.empty:
             df_massivo.to_excel(writer, index=False, sheet_name="Matching Massivo")
+            aplicar_estilo_excel(writer, "Matching Massivo")
         if not df_sem_vagas.empty:
             df_sem_vagas.to_excel(writer, index=False, sheet_name="Colaboradores Não Encontrados")
+            aplicar_estilo_excel(writer, "Colaboradores Não Encontrados")
 
     output.seek(0)
     return output
@@ -350,6 +391,7 @@ def gerar_excel(df, sheet_name="Matching"):
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name=sheet_name)
+        aplicar_estilo_excel(writer, sheet_name)
 
     output.seek(0)
     return output
@@ -1302,7 +1344,7 @@ if file_vagas and file_colab:
                     f"<div style='color:#e6edf3;font-size:15px;font-weight:700;'>Resultado geral</div>"
                     f"<div style='color:#8b949e;font-size:12px;margin-top:2px;'>{nota_score}</div>"
                     f"</div>"
-                    f"<span style='color:{cor_total};font-size:26px;font-weight:800;'>{score_pct}%</span>"
+                    f"<span style='color:{cor_status};font-size:26px;font-weight:800;'>{score_pct}%</span>"
                     f"</div>"
                     f"{_barra(score_pct, cor_total)}"
                     f"</div>"
