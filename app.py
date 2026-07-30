@@ -830,7 +830,7 @@ if file_vagas and file_colab:
                 "proyecto", "solicitante", "necesidad", "estado necesidad",
                 "rol reporting", "tasa máxima deseable", "match",
                 "perfil profesional", "perfil solicitado resumido",
-                "lugar de trabajo", "lugar de trabalho definitivo",
+                "lugar de trabalho", "lugar de trabalho definitivo",
                 "perfil solicitado detallado", "conocimientos funcionales",
                 "conocimientos tecnicos", "observaciones necesidad", "outros"
             ]
@@ -887,6 +887,7 @@ if file_vagas and file_colab:
                     vagas_finais = vagas_50 if not sem_vaga_50 else vagas_ordenadas
 
                     for rank, (_, vaga_row) in enumerate(vagas_finais.iterrows(), 1):
+                        score_formatado = f"{round(vaga_row['match'] * 100, 2)}%"
                         registro = {
                             "Nome Colaborador": nome_c,
                             "Matrícula": matricula_c,
@@ -894,8 +895,7 @@ if file_vagas and file_colab:
                             "Rol Colaborador": rol_c,
                             "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
                             "Ranking Match": rank,
-                            "Match Score (%)": round(vaga_row["match"] * 100, 2),
-                            "Status de Aderência": "Alta Aderência (>= 50%)" if vaga_row["match"] >= 0.50 else "Baixa Aderência (< 50%)",
+                            "Match Score (%)": score_formatado,
                             "Proyecto": vaga_row.get("proyecto", "-"),
                             "Solicitante": vaga_row.get("solicitante", "-"),
                             "Necesidad": vaga_row.get("necesidad", "-"),
@@ -929,8 +929,14 @@ if file_vagas and file_colab:
             st.subheader("Resultado da Análise Massiva")
 
             total_colabs_proc = colab.shape[0]
-            colabs_com_alta = df_massivo[df_massivo["Status de Aderência"] == "Alta Aderência (>= 50%)"]["Nome Colaborador"].nunique() if not df_massivo.empty else 0
-            colabs_com_baixa = df_massivo[df_massivo["Status de Aderência"] == "Baixa Aderência (< 50%)"]["Nome Colaborador"].nunique() if not df_massivo.empty else 0
+            # Contagem baseada no Match Score formatado ou cálculo direto por segurança
+            colabs_com_alta = 0
+            colabs_com_baix = 0
+            if not df_massivo.empty:
+                match_num = df_massivo["Match Score (%)"].str.rstrip('%').astype(float)
+                colabs_com_alta = df_massivo[match_num >= 50.0]["Nome Colaborador"].nunique()
+                colabs_com_baix = df_massivo[match_num < 50.0]["Nome Colaborador"].nunique()
+            
             colabs_sem_nenhuma = len(df_sem_vagas)
 
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
@@ -939,7 +945,7 @@ if file_vagas and file_colab:
             with col_m2:
                 st.metric("Alta Aderência (≥ 50%)", colabs_com_alta)
             with col_m3:
-                st.metric("Baixa Aderência (< 50%)", colabs_com_baixa)
+                st.metric("Baixa Aderência (< 50%)", colabs_com_baix)
             with col_m4:
                 st.metric("Nenhuma Vaga Compatível", colabs_sem_nenhuma)
 
@@ -980,8 +986,13 @@ if file_vagas and file_colab:
         col_obs        = st.session_state.col_obs_cache
         texto_cv_limpo = limpar_texto(texto_cv)
 
+        # Criar uma cópia formatada para exibição individual com o símbolo de porcentagem
+        resultado_exibicao = resultado.copy()
+        if "match" in resultado_exibicao.columns:
+            resultado_exibicao["match"] = (resultado_exibicao["match"] * 100).round(2).astype(str) + "%"
+
         st.dataframe(
-            resultado[colunas_exibir],
+            resultado_exibicao[colunas_exibir],
             use_container_width=True,
             height=700
         )
@@ -1268,7 +1279,12 @@ if file_vagas and file_colab:
                 st.markdown("### Conhecimentos Técnicos")
                 st.write(row.get("conocimientos tecnicos", "-"))
 
-        excel_file = gerar_excel(resultado[colunas_exibir])
+        # Gerar excel individual já com a porcentagem formatada
+        resultado_excel = resultado[colunas_exibir].copy()
+        if "match" in resultado_excel.columns:
+            resultado_excel["match"] = (resultado_excel["match"] * 100).round(2).astype(str) + "%"
+
+        excel_file = gerar_excel(resultado_excel)
 
         st.download_button(
             label="Baixar Resultado em Excel",
