@@ -1411,16 +1411,17 @@ if file_vagas and file_colab:
                 st.markdown("### Conhecimentos Técnicos")
                 st.write(row.get("conocimientos tecnicos", "-"))
 
-       # Filtra apenas as colunas que realmente existem no DataFrame para evitar o KeyError
-        colunas_validas = [col for col in colunas_exibir if col in resultado.columns]
-        resultado_excel = resultado[colunas_validas].copy()
-        
+       # Prepara a exportação incluindo a coluna "Match Score (%)" no DataFrame convertido
+        resultado_excel = resultado.copy()
         if "match" in resultado_excel.columns:
             resultado_excel["Match Score (%)"] = (resultado_excel["match"] * 100).round(2).astype(str) + "%"
             resultado_excel = resultado_excel.drop(columns=["match"])
-        
+
         if "lugar_de_trabalho_definitivo_real" in resultado_excel.columns:
             resultado_excel = resultado_excel.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo"})
+
+        colunas_validas = [col for col in colunas_exibir if col in resultado_excel.columns]
+        resultado_excel = resultado_excel[colunas_validas].copy()
         
         excel_file = gerar_excel(resultado_excel)
 
