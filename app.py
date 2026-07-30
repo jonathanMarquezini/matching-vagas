@@ -563,6 +563,9 @@ if "col_obs_cache" not in st.session_state:
 if "resultado_massivo_cache" not in st.session_state:
     st.session_state.resultado_massivo_cache = pd.DataFrame()
 
+if "colab_sem_vagas_cache" not in st.session_state:
+    st.session_state.colab_sem_vagas_cache = pd.DataFrame()
+
 st.subheader("Upload das Bases")
 
 col1, col2 = st.columns(2)
@@ -833,10 +836,11 @@ if file_vagas and file_colab:
 
     else:
         st.subheader("Processamento Massivo")
-        st.info("O sistema analisará a aderência de **TODOS** os colaboradores. Se o colaborador não possuir vagas com score >= 50%, todas as vagas compatíveis serão exibidas.")
+        st.info("O sistema analisará a aderência de **TODOS** os colaboradores. Se o colaborador não possuir vagas com score >= 50%, todas as vagas compatíveis serão exibidas como opção.")
 
         if st.button("Executar Análise Massiva"):
             lista_resultados = []
+            lista_sem_vagas = []
             
             progress_bar = st.progress(0)
             status_text = st.empty()
@@ -854,11 +858,20 @@ if file_vagas and file_colab:
 
                 vagas_matching = calcular_matching_colaborador(colab_row, vagas, colunas_mapa)
 
-                if not vagas_matching.empty:
+                if vagas_matching.empty:
+                    # Registra colaboradores que não tiveram nenhuma vaga de filtro compatível
+                    lista_sem_vagas.append({
+                        "Nome Colaborador": nome_c,
+                        "Matrícula": matricula_c,
+                        "Cargo Colaborador": cargo_c,
+                        "Rol Colaborador": rol_c,
+                        "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
+                        "Motivo": "Nenhuma vaga compatível nos filtros iniciais"
+                    })
+                else:
                     vagas_ordenadas = vagas_matching.sort_values("match", ascending=False)
                     vagas_50 = vagas_ordenadas[vagas_ordenadas["match"] >= 0.50]
                     
-                    # Se não houver vaga >= 50%, usamos todas as vagas ordenadas (fallback)
                     sem_vaga_50 = vagas_50.empty
                     vagas_finais = vagas_50 if not sem_vaga_50 else vagas_ordenadas
 
@@ -871,7 +884,7 @@ if file_vagas and file_colab:
                             "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
                             "Ranking Match": rank,
                             "Match Score (%)": round(vaga_row["match"] * 100, 2),
-                            "Aderência Alta (>=50%)": "Sim" if vaga_row["match"] >= 0.50 else "Não (Fallback)",
+                            "Status de Aderência": "Alta Aderência (>= 50%)" if vaga_row["match"] >= 0.50 else "Baixa Aderência (< 50%)",
                             "Proyecto": vaga_row.get("proyecto", "-"),
                             "Solicitante": vaga_row.get("solicitante", "-"),
                             "Necesidad": vaga_row.get("necesidad", "-"),
@@ -893,37 +906,51 @@ if file_vagas and file_colab:
             status_text.text("Análise massiva concluída!")
             
             st.session_state.resultado_massivo_cache = pd.DataFrame(lista_resultados) if lista_resultados else pd.DataFrame()
+            st.session_state.colab_sem_vagas_cache = pd.DataFrame(lista_sem_vagas) if lista_sem_vagas else pd.DataFrame()
 
     # --- RESULTADOS DA ANÁLISE MASSIVA ---
     if tipo_analise == "Análise Massiva (Todos da base de colaboradores)":
         df_massivo = st.session_state.resultado_massivo_cache if st.session_state.resultado_massivo_cache is not None else pd.DataFrame()
+        df_sem_vagas = st.session_state.colab_sem_vagas_cache if st.session_state.colab_sem_vagas_cache is not None else pd.DataFrame()
 
-        if not df_massivo.empty:
+        if not df_massivo.empty or not df_sem_vagas.empty:
             st.divider()
             st.subheader("Resultado da Análise Massiva")
 
-            total_colabs = df_massivo["Nome Colaborador"].nunique()
-            colabs_com_50 = df_massivo[df_massivo["Aderência Alta (>=50%)"] == "Sim"]["Nome Colaborador"].nunique()
-            colabs_abaixo_50 = total_colabs - colabs_com_50
+            total_colabs_proc = colab.shape[0]
+            colabs_com_alta = df_massivo[df_massivo["Status de Aderência"] == "Alta Aderência (>= 50%)"]["Nome Colaborador"].nunique() if not df_massivo.empty else 0
+            colabs_com_baixa = df_massivo[df_massivo["Status de Aderência"] == "Baixa Aderência (< 50%)"]["Nome Colaborador"].nunique() if not df_massivo.empty else 0
+            colabs_sem_nenhuma = len(df_sem_vagas)
 
-            col_m1, col_m2, col_m3 = st.columns(3)
+            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
             with col_m1:
-                st.metric("Total de Colaboradores Processados", total_colabs)
+                st.metric("Total da Base", total_colabs_proc)
             with col_m2:
-                st.metric("Colaboradores com Match ≥ 50%", colabs_com_50)
+                st.metric("Alta Aderência (≥ 50%)", colabs_com_alta)
             with col_m3:
-                st.metric("Colaboradores Exibidos com Fallback (< 50%)", colabs_abaixo_50)
+                st.metric("Baixa Aderência (< 50%)", colabs_com_baixa)
+            with col_m4:
+                st.metric("Nenhuma Vaga Compatível", colabs_sem_nenhuma)
 
             st.markdown("### 🎯 Lista Geral de Matching")
-            st.dataframe(df_massivo, use_container_width=True, height=550)
+            if not df_massivo.empty:
+                st.dataframe(df_massivo, use_container_width=True, height=450)
 
-            excel_massivo = gerar_excel(df_massivo, sheet_name="Matching Massivo")
-            st.download_button(
-                label="Baixar Relatório Massivo em Excel",
-                data=excel_massivo,
-                file_name="matching_massivo_completo.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+                excel_massivo = gerar_excel(df_massivo, sheet_name="Matching Massivo")
+                st.download_button(
+                    label="Baixar Relatório Massivo em Excel",
+                    data=excel_massivo,
+                    file_name="matching_massivo_completo.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            else:
+                st.info("Nenhum registro gerado na lista principal.")
+
+            if not df_sem_vagas.empty:
+                st.markdown("---")
+                st.markdown("### ⚠️ Colaboradores Sem Nenhuma Vaga Compatível")
+                st.markdown("Abaixo estão listados os colaboradores para os quais o sistema não encontrou nenhuma vaga alinhada nos filtros iniciais.")
+                st.dataframe(df_sem_vagas, use_container_width=True, height=250)
 
     # --- RESULTADOS DA ANÁLISE INDIVIDUAL ---
     if st.session_state.resultado_cache is not None and tipo_analise == "Análise Individual (Um colaborador)":
