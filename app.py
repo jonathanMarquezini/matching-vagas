@@ -628,6 +628,18 @@ if file_vagas and file_colab:
 
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
+    # Identificação correta e robusta da coluna de Lugar de Trabajo Definitivo
+    col_lugar_def = encontrar_coluna(vagas, [
+        "lugar_de_trabajo_definitivo", "lugar de trabajo definitivo",
+        "lugar_trabajo_definitivo", "lugar de trabalho definitivo",
+        "lugar_trabalho_definitivo", "lugar de trabajo", "lugar trabajo"
+    ])
+
+    if col_lugar_def:
+        vagas["lugar_de_trabalho_definitivo_real"] = vagas[col_lugar_def].fillna("-").astype(str)
+    else:
+        vagas["lugar_de_trabalho_definitivo_real"] = "-"
+
     col_obs = next((c for c in vagas.columns if "observaciones" in c and "necesidad" in c), None)
     if col_obs is None:
         col_obs = next((c for c in vagas.columns if "observaciones" in c), None)
@@ -830,7 +842,7 @@ if file_vagas and file_colab:
                 "proyecto", "solicitante", "necesidad", "estado necesidad",
                 "rol reporting", "tasa máxima deseable", "match",
                 "perfil profesional", "perfil solicitado resumido",
-                "lugar de trabalho", "lugar de trabalho definitivo",
+                "lugar de trabajo", "lugar_de_trabalho_definitivo_real",
                 "perfil solicitado detallado", "conocimientos funcionales",
                 "conocimientos tecnicos", "observaciones necesidad", "outros"
             ]
@@ -905,7 +917,7 @@ if file_vagas and file_colab:
                             "Perfil Profesional": vaga_row.get("perfil profesional", "-"),
                             "Perfil Solicitado Resumido": vaga_row.get("perfil solicitado resumido", "-"),
                             "Lugar de Trabajo": vaga_row.get("lugar de trabajo", "-"),
-                            "Lugar de Trabajo Definitivo": vaga_row.get("lugar de trabalho definitivo", "-"),
+                            "Lugar de Trabajo Definitivo": vaga_row.get("lugar_de_trabalho_definitivo_real", "-"),
                             "Perfil Solicitado Detallado": vaga_row.get("perfil solicitado detallado", "-"),
                             "Conocimientos Funcionales": vaga_row.get("conocimientos funcionales", "-"),
                             "Conocimientos Tecnicos": vaga_row.get("conocimientos tecnicos", "-"),
@@ -929,7 +941,6 @@ if file_vagas and file_colab:
             st.subheader("Resultado da Análise Massiva")
 
             total_colabs_proc = colab.shape[0]
-            # Contagem baseada no Match Score formatado ou cálculo direto por segurança
             colabs_com_alta = 0
             colabs_com_baix = 0
             if not df_massivo.empty:
@@ -949,7 +960,6 @@ if file_vagas and file_colab:
             with col_m4:
                 st.metric("Nenhuma Vaga Compatível", colabs_sem_nenhuma)
 
-            # Abas para separar a visualização em tela
             aba_principal, aba_sem_vagas = st.tabs(["🎯 Lista Geral de Matching", "⚠️ Colaboradores Não Encontrados"])
 
             with aba_principal:
@@ -967,7 +977,6 @@ if file_vagas and file_colab:
 
             st.markdown("---")
             
-            # Botão único no final gerando o excel consolidado com as duas abas
             excel_massivo_completo = gerar_excel_massivo(df_massivo, df_sem_vagas)
             st.download_button(
                 label="Baixar Relatório Massivo Completo em Excel (Com Abas)",
@@ -986,10 +995,14 @@ if file_vagas and file_colab:
         col_obs        = st.session_state.col_obs_cache
         texto_cv_limpo = limpar_texto(texto_cv)
 
-        # Criar uma cópia formatada para exibição individual com o símbolo de porcentagem
         resultado_exibicao = resultado.copy()
         if "match" in resultado_exibicao.columns:
             resultado_exibicao["match"] = (resultado_exibicao["match"] * 100).round(2).astype(str) + "%"
+
+        # Renomear temporariamente para exibição amigável na tabela individual
+        if "lugar_de_trabalho_definitivo_real" in resultado_exibicao.columns:
+            resultado_exibicao = resultado_exibicao.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo"})
+            colunas_exibir = ["lugar de trabajo definitivo" if c == "lugar_de_trabalho_definitivo_real" else c for c in colunas_exibir]
 
         st.dataframe(
             resultado_exibicao[colunas_exibir],
@@ -1079,6 +1092,8 @@ if file_vagas and file_colab:
         **Rol:** {row.get('rol reporting', '-')}
 
         **Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
+
+        **Lugar de Trabajo Definitivo:** {row.get('lugar_de_trabalho_definitivo_real', '-')}
 
         **Score Match:** {round(row['match'] * 100, 2)}%
         """)
@@ -1279,10 +1294,12 @@ if file_vagas and file_colab:
                 st.markdown("### Conhecimentos Técnicos")
                 st.write(row.get("conocimientos tecnicos", "-"))
 
-        # Gerar excel individual já com a porcentagem formatada
         resultado_excel = resultado[colunas_exibir].copy()
         if "match" in resultado_excel.columns:
             resultado_excel["match"] = (resultado_excel["match"] * 100).round(2).astype(str) + "%"
+
+        if "lugar_de_trabalho_definitivo_real" in resultado_excel.columns:
+            resultado_excel = resultado_excel.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo"})
 
         excel_file = gerar_excel(resultado_excel)
 
