@@ -341,7 +341,7 @@ def aplicar_estilo_excel(writer, sheet_name):
         worksheet = workbook[sheet_name]
         
         fill_cabecalho = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-        font_cabecalho = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF") # Fonte do cabeçalho levemente menor
+        font_cabecalho = Font(name="Segoe UI", size=8, bold=True, color="FFFFFF") # Fonte do cabeçalho levemente menor
         font_celulas = Font(name="Segoe UI", size=10)
         
         borda_fina = Side(style="thin", color="D9D9D9")
@@ -350,7 +350,7 @@ def aplicar_estilo_excel(writer, sheet_name):
         worksheet.views.sheetView[0].showGridLines = True
         
         # Altura otimizada para o cabeçalho
-        worksheet.row_dimensions[1].height = 24
+        worksheet.row_dimensions[1].height = 20
         
         for col in range(1, worksheet.max_column + 1):
             cell = worksheet.cell(row=1, column=col)
@@ -376,7 +376,7 @@ def aplicar_estilo_excel(writer, sheet_name):
                 indices_texto_longo.append(col)
 
         for row in range(2, worksheet.max_row + 1):
-            worksheet.row_dimensions[row].height = 28 # Altura compacta e elegante para as linhas de dados
+            worksheet.row_dimensions[row].height = 20 # Altura compacta e elegante para as linhas de dados
             
             for col in range(1, worksheet.max_column + 1):
                 cell = worksheet.cell(row=row, column=col)
