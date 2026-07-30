@@ -862,7 +862,6 @@ if file_vagas and file_colab:
         st.info("O sistema analisará a aderência de **TODOS** os colaboradores. Se o colaborador não possuir vagas com score >= 50%, todas as vagas compatíveis serão exibidas como opção.")
 
         if st.button("Executar Análise Massiva"):
-            # Envolvido em um st.spinner limpo para sinalizar que o processamento está rodando ativamente
             with st.spinner("Processando análise massiva de todos os colaboradores... Por favor, aguarde."):
                 lista_resultados = []
                 lista_sem_vagas = []
@@ -995,6 +994,10 @@ if file_vagas and file_colab:
         if "lugar_de_trabalho_definitivo_real" in resultado_exibicao.columns:
             resultado_exibicao = resultado_exibicao.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo"})
             colunas_exibir = ["lugar de trabajo definitivo" if c == "lugar_de_trabalho_definitivo_real" else c for c in colunas_exibir]
+
+        # Garantir remoção de colunas duplicadas antes de renderizar a tabela
+        resultado_exibicao = resultado_exibicao.loc[:, ~resultado_exibicao.columns.duplicated()]
+        colunas_exibir = list(dict.fromkeys(colunas_exibir))
 
         st.dataframe(
             resultado_exibicao[colunas_exibir],
