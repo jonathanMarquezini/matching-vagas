@@ -835,11 +835,6 @@ if file_vagas and file_colab:
         st.subheader("Processamento Massivo")
         st.info("O sistema analisará a aderência de **TODOS** os colaboradores cadastrados contra a base de vagas.")
 
-        top_n = st.number_input(
-            "Quantidade de melhores vagas por colaborador no relatório:",
-            min_value=1, max_value=10, value=1, step=1
-        )
-
         if st.button("Executar Análise Massiva"):
             lista_resultados = []
             progress_bar = st.progress(0)
@@ -858,9 +853,12 @@ if file_vagas and file_colab:
                 vagas_matching = calcular_matching_colaborador(colab_row, vagas, colunas_mapa)
 
                 if not vagas_matching.empty:
-                    vagas_ordenadas = vagas_matching.sort_values("match", ascending=False).head(top_n)
+                    vagas_ordenadas = vagas_matching.sort_values("match", ascending=False)
+                    vagas_50        = vagas_ordenadas[vagas_ordenadas["match"] >= 0.50]
+                    
+                    vagas_finais = vagas_50 if not vagas_50.empty else vagas_ordenadas
 
-                    for rank, (_, vaga_row) in enumerate(vagas_ordenadas.iterrows(), 1):
+                    for rank, (_, vaga_row) in enumerate(vagas_finais.iterrows(), 1):
                         registro = {
                             "Nome Colaborador": nome_c,
                             "Matrícula": matricula_c,
@@ -870,7 +868,6 @@ if file_vagas and file_colab:
                             "Ranking Match": rank,
                             "Match Score (%)": round(vaga_row["match"] * 100, 2),
                             
-                            # Todas as colunas completas da Vaga trazidas da validação individual:
                             "Proyecto": vaga_row.get("proyecto", "-"),
                             "Solicitante": vaga_row.get("solicitante", "-"),
                             "Necesidad": vaga_row.get("necesidad", "-"),
@@ -903,11 +900,7 @@ if st.session_state.resultado_massivo_cache is not None and tipo_analise != "An�
     st.divider()
     st.subheader("Resultado da Análise Massiva")
 
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        st.metric("Total de Colaboradores Mapeados", df_massivo["Nome Colaborador"].nunique())
-    with col_m2:
-        st.metric("Média de Score Top 1", f"{round(df_massivo[df_massivo['Ranking Match'] == 1]['Match Score (%)'].mean(), 1)}%")
+    st.metric("Total de Colaboradores Mapeados", df_massivo["Nome Colaborador"].nunique())
 
     st.dataframe(df_massivo, use_container_width=True, height=500)
 
@@ -1225,4 +1218,4 @@ if st.session_state.resultado_cache is not None and tipo_analise == "Análise In
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>Matching Inteligente de Vagas v4.5</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> | UGR Brasil</div></div></div>", unsafe_allow_html=True)
+st.markdown("<div class='footer-wrapper'><div class='footer-box'><div class='footer-title'>Matching Inteligente de Vagas v5.0</div><div class='footer-description'>Plataforma corporativa de apoio estratégico para análise de aderência entre colaboradores e oportunidades internas, utilizando IA, Skills, Perfil Profissional e Currículo PDF.</div><div class='footer-author'>Desenvolvido por <b>Jonathan Marquezini</b> | UGR Brasil</div></div></div>", unsafe_allow_html=True)
