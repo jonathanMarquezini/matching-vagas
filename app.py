@@ -71,7 +71,6 @@ div[data-baseweb="select"] > div {
     background-color: #1c1f26;
 }
 
-/* Ajustes visuais compactos no Streamlit */
 [data-testid="stDataFrame"] {
     border-radius: 8px;
     overflow: hidden;
@@ -1006,10 +1005,10 @@ if file_vagas and file_colab:
     col_lugar_trabalho = encontrar_coluna(
         vagas,
         [
+            "lugar de trabalho",
             "lugar de trabajo",
             "lugar de trabajo vaga",
             "lugar_de_trabajo",
-            "lugar de trabalho",
             "lugar trabalho",
             "local de trabalho",
         ],
@@ -1045,7 +1044,17 @@ if file_vagas and file_colab:
     )
     if target_col not in vagas.columns:
         vagas[target_col] = "-"
+    else:
+        vagas[target_col] = (
+            vagas[target_col]
+            .replace(r'^\s*$', '-', regex=True)
+            .fillna("-")
+            .astype(str)
+            .replace(['nan', 'NaN', 'None', ''], '-')
+        )
 
+    # Nota: A separação em País / Estado é mantida exclusivamente para o Relatório Massivo se necessário,
+    # mas na Análise Individual mantemos o target_col original sem alterá-lo.
     paises = []
     locais = []
     for val in vagas[target_col].astype(str):
@@ -1058,14 +1067,6 @@ if file_vagas and file_colab:
             locais.append(val.strip())
 
     vagas["País"] = paises
-    vagas[target_col] = locais
-
-    cols_vagas = list(vagas.columns)
-    if "País" in cols_vagas and target_col in cols_vagas:
-        cols_vagas.remove("País")
-        idx = cols_vagas.index(target_col)
-        cols_vagas.insert(idx + 1, "País")
-        vagas = vagas[cols_vagas]
 
     col_obs = next(
         (c for c in vagas.columns if "observaciones" in c and "necesidad" in c),
@@ -1389,7 +1390,6 @@ if file_vagas and file_colab:
                 cv_status = "Sim" if texto_cv.strip() else "Não"
                 st.metric("CV utilizado no match", cv_status)
             
-            # Ajustando nomenclaturas de colunas para corresponder exatamente à solicitação
             if "lugar de trabalho vaga" in resultado.columns:
                 resultado = resultado.rename(columns={"lugar de trabalho vaga": "lugar de trabalho"})
             if target_col in resultado.columns and target_col != "lugar de trabalho definitivo":
