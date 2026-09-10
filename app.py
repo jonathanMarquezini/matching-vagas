@@ -1039,23 +1039,34 @@ if file_vagas and file_colab:
         ],
     )
 
-    target_col = (
-        col_lugar_def if col_lugar_def else "lugar de trabalho definitivo vaga"
-    )
-    if target_col not in vagas.columns:
-        vagas[target_col] = "-"
-    else:
-        vagas[target_col] = (
-            vagas[target_col]
+    target_col = "lugar de trabajo definitivo vaga"
+    
+    if col_lugar_def:
+        valores_def = (
+            vagas[col_lugar_def]
             .replace(r'^\s*$', '-', regex=True)
             .fillna("-")
             .astype(str)
             .replace(['nan', 'NaN', 'None', ''], '-')
         )
+        
+        # Tratamento solicitado: se vier "Pais - Cidade", extrair apenas a cidade (ex: Brasil - Brasilia -> Brasilia)
+        locais_def_tratados = []
+        for val in valores_def:
+            if " - " in val:
+                partes = val.split(" - ", 1)
+                locais_def_tratados.append(partes[1].strip())
+            else:
+                locais_def_tratados.append(val.strip())
+        vagas[target_col] = locais_def_tratados
+    else:
+        vagas[target_col] = "-"
 
     paises = []
     locais = []
-    for val in vagas[target_col].astype(str):
+    
+    col_para_pais = col_lugar_def if col_lugar_def else target_col
+    for val in vagas[col_para_pais].astype(str):
         if " - " in val:
             partes = val.split(" - ", 1)
             paises.append(partes[0].strip())
@@ -1390,8 +1401,8 @@ if file_vagas and file_colab:
             
             if "lugar de trabalho vaga" in resultado.columns:
                 resultado = resultado.rename(columns={"lugar de trabalho vaga": "lugar de trabalho"})
-            if target_col in resultado.columns and target_col != "lugar de trabalho definitivo":
-                resultado = resultado.rename(columns={target_col: "lugar de trabalho definitivo"})
+            if target_col in resultado.columns and target_col != "lugar de trabalho definitivo vaga":
+                resultado = resultado.rename(columns={target_col: "lugar de trabalho definitivo vaga"})
 
             colunas_exibir = [
                 "proyecto",
@@ -1404,7 +1415,7 @@ if file_vagas and file_colab:
                 "perfil profesional",
                 "perfil solicitado resumido",
                 "lugar de trabalho",
-                "lugar de trabalho definitivo",
+                "lugar de trabalho definitivo vaga",
                 "perfil solicitado detallado",
                 "conocimientos funcionales",
                 "conocimientos tecnicos",
@@ -1753,7 +1764,7 @@ if file_vagas and file_colab:
 
                 **Lugar de Trabajo:** {row.get('lugar de trabalho', '-')}
 
-                **Lugar de Trabajo Definitivo:** {row.get('lugar de trabalho definitivo', '-')}
+                **Lugar de Trabajo Definitivo Vaga:** {row.get('lugar de trabalho definitivo vaga', '-')}
 
                 **Score Match:** {round(row['match'] * 100, 2)}%
                 """)
