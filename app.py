@@ -1,3 +1,4 @@
+[source: 6]
 from io import BytesIO
 import re
 import time
@@ -1395,10 +1396,6 @@ if file_vagas and file_colab:
             if target_col in resultado.columns and target_col != "lugar de trabalho definitivo":
                 resultado = resultado.rename(columns={target_col: "lugar de trabalho definitivo"})
 
-            # Duplicando 'lugar de trabalho definitivo' caso o usuário deseje conforme listado
-            if "lugar de trabalho definitivo" in resultado.columns:
-                resultado["lugar de trabalho definitivo_2"] = resultado["lugar de trabalho definitivo"]
-
             colunas_exibir = [
                 "proyecto",
                 "solicitante",
@@ -1411,7 +1408,6 @@ if file_vagas and file_colab:
                 "perfil solicitado resumido",
                 "lugar de trabalho",
                 "lugar de trabalho definitivo",
-                "lugar de trabalho definitivo_2" if "lugar de trabalho definitivo_2" in resultado.columns else "lugar de trabalho definitivo",
                 "perfil solicitado detallado",
                 "conocimientos funcionales",
                 "conocimientos tecnicos",
@@ -1656,25 +1652,14 @@ if file_vagas and file_colab:
         if "_breakdown" in resultado_exibicao.columns:
             resultado_exibicao = resultado_exibicao.drop(columns=["_breakdown"])
 
-        final_cols = []
-        for c in colunas_exibir:
-            if c == "match":
-                final_cols.append("Match Score (%)")
-            elif c in resultado_exibicao.columns:
-                final_cols.append(c)
-
         resultado_exibicao = resultado_exibicao.loc[
             :, ~resultado_exibicao.columns.duplicated()
         ]
         
-        # Manter duplicata caso exigido na ordem de exibição
         final_cols_exibicao = []
         for c in colunas_exibir:
             if c == "match":
                 final_cols_exibicao.append("Match Score (%)")
-            elif c == "lugar de trabalho definitivo_2" and "lugar de trabalho definitivo" in resultado_exibicao.columns:
-                resultado_exibicao["lugar de trabalho definitivo_dup"] = resultado_exibicao["lugar de trabalho definitivo"]
-                final_cols_exibicao.append("lugar de trabalho definitivo_dup")
             elif c in resultado_exibicao.columns:
                 final_cols_exibicao.append(c)
 
@@ -2092,9 +2077,6 @@ if file_vagas and file_colab:
         for c in colunas_exibir:
             if c == "match":
                 cols_ordem_excel.append("Match Score (%)")
-            elif c == "lugar de trabalho definitivo_2" and "lugar de trabalho definitivo" in resultado_excel.columns:
-                resultado_excel["lugar de trabalho definitivo_dup"] = resultado_excel["lugar de trabalho definitivo"]
-                cols_ordem_excel.append("lugar de trabalho definitivo_dup")
             elif c in resultado_excel.columns:
                 cols_ordem_excel.append(c)
 
