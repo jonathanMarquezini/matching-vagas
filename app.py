@@ -362,7 +362,6 @@ def aplicar_estilo_excel(writer, sheet_name):
         
         worksheet.views.sheetView[0].showGridLines = True
         
-        # Altura compacta para o cabeçalho
         worksheet.row_dimensions[1].height = 20
         
         for col in range(1, worksheet.max_column + 1):
@@ -382,13 +381,6 @@ def aplicar_estilo_excel(writer, sheet_name):
             "perfil solicitado resumido"
         ]
         
-        indices_texto_longo = []
-        for col in range(1, worksheet.max_column + 1):
-            val_cabecalho = str(worksheet.cell(row=1, column=col).value or "").strip().lower()
-            if any(c in val_cabecalho for c in colunas_texto_longo):
-                indices_texto_longo.append(col)
-
-        # Altura rigorosamente baixa (16) para todas as linhas de dados, idêntica ao Excel compacto
         for row in range(2, worksheet.max_row + 1):
             worksheet.row_dimensions[row].height = 16
             
@@ -728,6 +720,13 @@ if file_vagas and file_colab:
 
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
+    # Identificação e renomeação solicitada para colunas da base de vagas
+    col_lugar_trabalho = encontrar_coluna(vagas, ["lugar_de_trabajo", "lugar de trabajo", "lugar trabajo", "local de trabalho"])
+    if col_lugar_trabalho:
+        vagas["lugar de trabajo vaga"] = vagas[col_lugar_trabalho].fillna("-").astype(str)
+    else:
+        vagas["lugar de trabajo vaga"] = "-"
+
     col_lugar_def = encontrar_coluna(vagas, [
         "lugar_de_trabajo_definitivo", "lugar de trabalho definitivo",
         "lugar_trabajo_definitivo", "lugar de trabalho definitivo",
@@ -735,9 +734,9 @@ if file_vagas and file_colab:
     ])
 
     if col_lugar_def:
-        vagas["lugar_de_trabalho_definitivo_real"] = vagas[col_lugar_def].fillna("-").astype(str)
+        vagas["lugar de trabajo definitivo vaga"] = vagas[col_lugar_def].fillna("-").astype(str)
     else:
-        vagas["lugar_de_trabalho_definitivo_real"] = "-"
+        vagas["lugar de trabajo definitivo vaga"] = "-"
 
     col_obs = next((c for c in vagas.columns if "observaciones" in c and "necesidad" in c), None)
     if col_obs is None:
@@ -811,6 +810,25 @@ if file_vagas and file_colab:
         "taxa maxima", "taxa", "tasa", "rate_max"
     ])
 
+    # Tratamento e ajustes das colunas solicitadas de colaboradores (ID, Localidade Estado e Município)
+    coluna_id = encontrar_coluna(colab, ["id", "matricula", "codigo", "employee_id"])
+    if coluna_id:
+        colab["ID"] = colab[coluna_id].fillna("-").astype(str)
+    else:
+        colab["ID"] = "-"
+
+    col_loc_estado = encontrar_coluna(colab, ["localidade_estado", "estado", "uf", "localidade estado"])
+    if col_loc_estado:
+        colab["Localidade Estado Colaborador"] = colab[col_loc_estado].fillna("-").astype(str)
+    else:
+        colab["Localidade Estado Colaborador"] = "-"
+
+    col_loc_mun = encontrar_coluna(colab, ["localidade_municipio", "municipio", "cidade", "localidade municipio"])
+    if col_loc_mun:
+        colab["Localidade Municipio Colaborador"] = colab[col_loc_mun].fillna("-").astype(str)
+    else:
+        colab["Localidade Municipio Colaborador"] = "-"
+
     colunas_mapa = {
         "coluna_nome": coluna_nome,
         "coluna_matricula": coluna_matricula,
@@ -835,16 +853,17 @@ if file_vagas and file_colab:
 
         st.subheader("Seleção de Colaborador")
 
-        busca = st.text_input("Digite nome ou matrícula")
+        busca = st.text_input("Digite nome ou matrícula/ID")
 
         if busca:
             filtro_nome = colab[coluna_nome].astype(str).str.contains(busca, case=False, na=False)
+            filtro_id = colab["ID"].astype(str).str.contains(busca, case=False, na=False)
 
             if coluna_matricula:
                 filtro_matricula = colab[coluna_matricula].astype(str).str.contains(busca, na=False)
-                filtro_df = colab[filtro_nome | filtro_matricula]
+                filtro_df = colab[filtro_nome | filtro_id | filtro_matricula]
             else:
-                filtro_df = colab[filtro_nome]
+                filtro_df = colab[filtro_nome | filtro_id]
         else:
             filtro_df = colab
 
@@ -946,10 +965,11 @@ if file_vagas and file_colab:
                 st.metric("CV utilizado no match", cv_status)
 
             colunas_exibir = [
-                "proyecto", "solicitante", "necesidad", "estado necesidad",
+                "ID", "proyecto", "solicitante", "necesidad", "estado necesidad",
                 "rol reporting", "tasa máxima deseable", "match",
                 "perfil profesional", "perfil solicitado resumido",
-                "lugar de trabajo", "lugar_de_trabalho_definitivo_real",
+                "lugar de trabajo vaga", "lugar de trabajo definitivo vaga",
+                "Localidade Estado Colaborador", "Localidade Municipio Colaborador",
                 "perfil solicitado detallado", "conocimientos funcionales",
                 "conocimientos tecnicos", "observaciones necesidad", "outros"
             ]
@@ -986,19 +1006,23 @@ if file_vagas and file_colab:
                 status_massivo.markdown(f"⚙️ **Processando Análise ({idx+1}/{total_colab}):** Analisando colaborador {colab_row.get(coluna_nome, f'Colab {idx+1}')}...")
                 time.sleep(0.01)
 
+                id_c = colab_row.get("ID", "-")
                 nome_c = colab_row.get(coluna_nome, f"Colaborador {idx+1}")
-                matricula_c = colab_row.get(coluna_matricula, "-") if coluna_matricula else "-"
                 cargo_c = colab_row.get(coluna_nome_perfil, "-") if coluna_nome_perfil else "-"
                 rol_c = colab_row.get(coluna_rol_colab, "-") if coluna_rol_colab else "-"
+                loc_estado_c = colab_row.get("Localidade Estado Colaborador", "-")
+                loc_mun_c = colab_row.get("Localidade Municipio Colaborador", "-")
 
                 vagas_matching = calcular_matching_colaborador(colab_row, vagas, colunas_mapa)
 
                 if vagas_matching.empty:
                     list_sem_vagas.append({
+                        "ID": id_c,
                         "Nome Colaborador": nome_c,
-                        "Matrícula": matricula_c,
                         "Cargo Colaborador": cargo_c,
                         "Rol Colaborador": rol_c,
+                        "Localidade Estado Colaborador": loc_estado_c,
+                        "Localidade Municipio Colaborador": loc_mun_c,
                         "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
                         "Motivo": "Nenhuma vaga compatível nos filtros iniciais"
                     })
@@ -1012,10 +1036,12 @@ if file_vagas and file_colab:
                     for rank, (_, vaga_row) in enumerate(vagas_finais.iterrows(), 1):
                         score_formatado = f"{round(vaga_row['match'] * 100, 2)}%"
                         registro = {
+                            "ID": id_c,
                             "Nome Colaborador": nome_c,
-                            "Matrícula": matricula_c,
                             "Cargo Colaborador": cargo_c,
                             "Rol Colaborador": rol_c,
+                            "Localidade Estado Colaborador": loc_estado_c,
+                            "Localidade Municipio Colaborador": loc_mun_c,
                             "Taxa Colaborador": colab_row.get(coluna_taxa_colab, "-") if coluna_taxa_colab else "-",
                             "Ranking Match": rank,
                             "Match Score (%)": score_formatado,
@@ -1027,8 +1053,8 @@ if file_vagas and file_colab:
                             "Tasa Máxima Deseable": vaga_row.get("tasa máxima deseable", "-"),
                             "Perfil Profesional": vaga_row.get("perfil profesional", "-"),
                             "Perfil Solicitado Resumido": vaga_row.get("perfil solicitado resumido", "-"),
-                            "Lugar de Trabajo": vaga_row.get("lugar de trabajo", "-"),
-                            "Lugar de Trabajo Definitivo": vaga_row.get("lugar_de_trabalho_definitivo_real", "-"),
+                            "Lugar de Trabajo Vaga": vaga_row.get("lugar de trabajo vaga", "-"),
+                            "Lugar de Trabajo Definitivo Vaga": vaga_row.get("lugar de trabajo definitivo vaga", "-"),
                             "Perfil Solicitado Detallado": vaga_row.get("perfil solicitado detallado", "-"),
                             "Conocimientos Funcionales": vaga_row.get("conocimientos funcionales", "-"),
                             "Conocimientos Tecnicos": vaga_row.get("conocimientos tecnicos", "-"),
@@ -1056,8 +1082,8 @@ if file_vagas and file_colab:
             colabs_com_baix = 0
             if not df_massivo.empty:
                 match_num = df_massivo["Match Score (%)"].str.rstrip('%').astype(float)
-                colabs_com_alta = df_massivo[match_num >= 50.0]["Nome Colaborador"].nunique()
-                colabs_com_baix = df_massivo[match_num < 50.0]["Nome Colaborador"].nunique()
+                colabs_com_alta = df_massivo[match_num >= 50.0]["ID"].nunique()
+                colabs_com_baix = df_massivo[match_num < 50.0]["ID"].nunique()
             
             colabs_sem_nenhuma = len(df_sem_vagas)
 
@@ -1110,15 +1136,19 @@ if file_vagas and file_colab:
             resultado_exibicao["Match Score (%)"] = (resultado_exibicao["match"] * 100).round(2).astype(str) + "%"
             resultado_exibicao = resultado_exibicao.drop(columns=["match"])
 
-        # Atualiza a coluna 'match' para 'Match Score (%)' na lista de colunas a exibir
         colunas_exibir = ["Match Score (%)" if c == "match" else c for c in colunas_exibir]
 
+        # Garantir os nomes corretos para visualização e reordenação (ID na primeira coluna)
         if "lugar_de_trabalho_definitivo_real" in resultado_exibicao.columns:
-            resultado_exibicao = resultado_exibicao.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo"})
-            colunas_exibir = ["lugar de trabajo definitivo" if c == "lugar_de_trabalho_definitivo_real" else c for c in colunas_exibir]
+            resultado_exibicao = resultado_exibicao.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo vaga"})
+            colunas_exibir = ["lugar de trabajo definitivo vaga" if c == "lugar_de_trabalho_definitivo_real" else c for c in colunas_exibir]
 
         resultado_exibicao = resultado_exibicao.loc[:, ~resultado_exibicao.columns.duplicated()]
         colunas_exibir = list(dict.fromkeys(colunas_exibir))
+
+        if "ID" in colunas_exibir:
+            colunas_exibir.remove("ID")
+        colunas_exibir = ["ID"] + colunas_exibir
 
         st.dataframe(
             resultado_exibicao[colunas_exibir],
@@ -1209,7 +1239,9 @@ if file_vagas and file_colab:
 
         **Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
 
-        **Lugar de Trabajo Definitivo:** {row.get('lugar_de_trabalho_definitivo_real', '-')}
+        **Lugar de Trabajo Vaga:** {row.get('lugar de trabajo vaga', '-')}
+
+        **Lugar de Trabajo Definitivo Vaga:** {row.get('lugar de trabajo definitivo vaga', '-')}
 
         **Score Match:** {round(row['match'] * 100, 2)}%
         """)
@@ -1411,18 +1443,21 @@ if file_vagas and file_colab:
                 st.markdown("### Conhecimentos Técnicos")
                 st.write(row.get("conocimientos tecnicos", "-"))
 
-       # Prepara a exportação incluindo a coluna "Match Score (%)" no DataFrame convertido
         resultado_excel = resultado.copy()
         if "match" in resultado_excel.columns:
             resultado_excel["Match Score (%)"] = (resultado_excel["match"] * 100).round(2).astype(str) + "%"
             resultado_excel = resultado_excel.drop(columns=["match"])
 
         if "lugar_de_trabalho_definitivo_real" in resultado_excel.columns:
-            resultado_excel = resultado_excel.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo"})
+            resultado_excel = resultado_excel.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo vaga"})
 
         colunas_validas = [col for col in colunas_exibir if col in resultado_excel.columns]
         resultado_excel = resultado_excel[colunas_validas].copy()
         
+        if "ID" in resultado_excel.columns:
+            cols_ordem = ["ID"] + [c for c in resultado_excel.columns if c != "ID"]
+            resultado_excel = resultado_excel[cols_ordem]
+
         excel_file = gerar_excel(resultado_excel)
 
         st.download_button(
