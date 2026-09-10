@@ -720,7 +720,6 @@ if file_vagas and file_colab:
 
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
-    # Identificação e renomeação solicitada para colunas da base de vagas
     col_lugar_trabalho = encontrar_coluna(vagas, ["lugar_de_trabajo", "lugar de trabajo", "lugar trabalho", "local de trabalho"])
     if col_lugar_trabalho:
         vagas["lugar de trabajo vaga"] = vagas[col_lugar_trabalho].fillna("-").astype(str)
@@ -810,7 +809,6 @@ if file_vagas and file_colab:
         "taxa maxima", "taxa", "tasa", "rate_max"
     ])
 
-    # Tratamento e ajustes das colunas solicitadas de colaboradores (ID, Localidade Estado e Município)
     coluna_id = encontrar_coluna(colab, ["id", "matricula", "codigo", "employee_id"])
     if coluna_id:
         colab["ID"] = colab[coluna_id].fillna("-").astype(str)
@@ -1136,7 +1134,6 @@ if file_vagas and file_colab:
             resultado_exibicao["Match Score (%)"] = (resultado_exibicao["match"] * 100).round(2).astype(str) + "%"
             resultado_exibicao = resultado_exibicao.drop(columns=["match"])
 
-        # Validação segura para evitar KeyError com colunas ausentes
         colunas_validas = [c for c in colunas_exibir if c in resultado_exibicao.columns]
         for extra_col in ["ID", "Match Score (%)"]:
             if extra_col in resultado_exibicao.columns and extra_col not in colunas_validas:
@@ -1149,8 +1146,11 @@ if file_vagas and file_colab:
             colunas_validas.remove("ID")
         colunas_validas = ["ID"] + [c for c in colunas_validas if c != "ID"]
 
+        # BLINDAGEM CONTRA KEYERROR: Filtra estritamente apenas as colunas que realmente existem no DataFrame
+        colunas_existentes_definitivas = [col for col in colunas_validas if col in resultado_exibicao.columns]
+
         st.dataframe(
-            resultado_exibicao[colunas_validas],
+            resultado_exibicao[colunas_existentes_definitivas],
             use_container_width=True,
             height=700
         )
