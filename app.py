@@ -1,3 +1,4 @@
+[source: 9]
 from io import BytesIO
 import re
 import time
@@ -1414,8 +1415,8 @@ if file_vagas and file_colab:
                 "perfil profesional",
                 "perfil solicitado resumido",
                 "Lugar de Trabajo Vaga",
-                "País",
                 "lugar de trabalho definitivo vaga",
+                "País",
                 "perfil solicitado detallado",
                 "conocimientos funcionales",
                 "conocimientos tecnicos",
@@ -1764,9 +1765,9 @@ if file_vagas and file_colab:
 
                 **Lugar de Trabajo Vaga:** {row.get('Lugar de Trabajo Vaga', '-')}
 
-                **País:** {row.get('País', '-')}
-
                 **Lugar de Trabajo Definitivo Vaga:** {row.get('lugar de trabalho definitivo vaga', '-')}
+
+                **País:** {row.get('País', '-')}
 
                 **Score Match:** {round(row['match'] * 100, 2)}%
                 """)
