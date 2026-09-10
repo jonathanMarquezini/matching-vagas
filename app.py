@@ -432,7 +432,7 @@ def normalizar_col(nome):
     nome = str(nome).strip().lower()
     nome = unicodedata.normalize("NFD", nome)
     nome = "".join(c for c in nome if unicodedata.category(c) != "Mn")
-    nome = re.sub(r"[^\w\s]", "", nome) # Adicionado filtro extra contra pontuação invisível
+    nome = re.sub(r"[^\w\s]", "", nome)
     nome = re.sub(r"[\s_]+", "_", nome)
     return nome
 
@@ -443,7 +443,6 @@ def encontrar_coluna(df, candidatos, ignorar=None):
     
     cols_norm = {normalizar_col(c): c for c in df.columns}
 
-    # Match exato seguro
     for cand in candidatos:
         cand_norm = normalizar_col(cand)
         if cand_norm in cols_norm:
@@ -452,7 +451,6 @@ def encontrar_coluna(df, candidatos, ignorar=None):
             if not any(normalizar_col(ig) in col_real_norm for ig in ignorar):
                 return col_real
 
-    # Match de Substring
     for cand in candidatos:
         cand_norm = normalizar_col(cand)
         for col_norm, col_real in cols_norm.items():
@@ -595,7 +593,6 @@ def aplicar_estilo_excel(writer, sheet_name):
 def gerar_excel_massivo(df_massivo, df_sem_vagas):
     output = BytesIO()
 
-    # Limpeza de colunas complexas do DataFrame antes da escrita
     df_m = df_massivo.drop(columns=["_breakdown"], errors="ignore")
     df_s = df_sem_vagas.drop(columns=["_breakdown"], errors="ignore")
 
@@ -618,7 +615,6 @@ def gerar_excel_massivo(df_massivo, df_sem_vagas):
 def gerar_excel(df, sheet_name="Matching"):
     output = BytesIO()
 
-    # Garantir a remoção da coluna complexa se ela estiver presente
     df_clean = df.drop(columns=["_breakdown"], errors="ignore")
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -970,9 +966,6 @@ if file_vagas and file_colab:
     vagas.columns = vagas.columns.str.strip().str.lower()
     colab.columns = colab.columns.str.strip().str.lower()
 
-    # ------------------------------------------
-    # 1. AJUSTES NA BASE DE COLABORADORES
-    # ------------------------------------------
     rename_cols = {}
     if "localidade_estado" in colab.columns:
         rename_cols["localidade_estado"] = "Localidade Estado Colaborador"
@@ -989,14 +982,10 @@ if file_vagas and file_colab:
     else:
         colab["ID"] = "-"
 
-    # Garantir rigorosamente que a coluna ID seja a PRIMEIRA coluna
     if "ID" in colab.columns:
         cols_colab = ["ID"] + [c for c in colab.columns if c != "ID"]
         colab = colab[cols_colab]
 
-    # ------------------------------------------
-    # 2. AJUSTES NA BASE DE VAGAS
-    # ------------------------------------------
     if "necesidad" in vagas.columns:
         vagas = vagas.drop_duplicates(subset=["necesidad"])
 
@@ -1014,7 +1003,6 @@ if file_vagas and file_colab:
 
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
-    # Novo comportamento: Busca exclusiva garantindo blindagem com "ignorar"
     col_lugar_trabalho = encontrar_coluna(
         vagas,
         [
@@ -1029,7 +1017,6 @@ if file_vagas and file_colab:
     )
 
     if col_lugar_trabalho:
-        # Tratamento agressivo contra nulos, NaN, None e strings vazias vindas do excel
         vagas["lugar de trabalho vaga"] = (
             vagas[col_lugar_trabalho]
             .replace(r'^\s*$', '-', regex=True)
@@ -1040,7 +1027,6 @@ if file_vagas and file_colab:
     else:
         vagas["lugar de trabalho vaga"] = "-"
 
-    # Busca independente para a coluna definitiva
     col_lugar_def = encontrar_coluna(
         vagas,
         [
@@ -1074,7 +1060,6 @@ if file_vagas and file_colab:
     vagas["País"] = paises
     vagas[target_col] = locais
 
-    # Reorganizar colunas para inserir 'País' logo após o local de trabalho definitivo
     cols_vagas = list(vagas.columns)
     if "País" in cols_vagas and target_col in cols_vagas:
         cols_vagas.remove("País")
@@ -1257,7 +1242,6 @@ if file_vagas and file_colab:
 
         st.subheader("Seleção de Colaborador")
 
-        # Texto do input de busca atualizado conforme requisitado
         busca = st.text_input("Digite nome ou matrícula")
 
         if busca:
@@ -1405,17 +1389,17 @@ if file_vagas and file_colab:
                 cv_status = "Sim" if texto_cv.strip() else "Não"
                 st.metric("CV utilizado no match", cv_status)
             
-            # Adiciona as informações do colaborador diretamente no DataFrame resultante
-            resultado["ID"] = perfil_row.get("ID", "-")
-            resultado["Matricula Colaborador"] = perfil_row.get(coluna_matricula, "-") if coluna_matricula else "-"
-            resultado["Nome Colaborador"] = selecionado
-            resultado["Localidade Estado Colaborador"] = perfil_row.get("Localidade Estado Colaborador", "-")
-            resultado["Localidade Municipio Colaborador"] = perfil_row.get("Localidade Municipio Colaborador", "-")
+            # Ajustando nomenclaturas de colunas para corresponder exatamente à solicitação
+            if "lugar de trabalho vaga" in resultado.columns:
+                resultado = resultado.rename(columns={"lugar de trabalho vaga": "lugar de trabalho"})
+            if target_col in resultado.columns and target_col != "lugar de trabalho definitivo":
+                resultado = resultado.rename(columns={target_col: "lugar de trabalho definitivo"})
+
+            # Duplicando 'lugar de trabalho definitivo' caso o usuário deseje conforme listado
+            if "lugar de trabalho definitivo" in resultado.columns:
+                resultado["lugar de trabalho definitivo_2"] = resultado["lugar de trabalho definitivo"]
 
             colunas_exibir = [
-                "ID",
-                "Matricula Colaborador",
-                "Nome Colaborador",
                 "proyecto",
                 "solicitante",
                 "necesidad",
@@ -1425,11 +1409,9 @@ if file_vagas and file_colab:
                 "match",
                 "perfil profesional",
                 "perfil solicitado resumido",
-                "lugar de trabalho vaga",
-                target_col,
-                "País",
-                "Localidade Estado Colaborador",
-                "Localidade Municipio Colaborador",
+                "lugar de trabalho",
+                "lugar de trabalho definitivo",
+                "lugar de trabalho definitivo_2" if "lugar de trabalho definitivo_2" in resultado.columns else "lugar de trabalho definitivo",
                 "perfil solicitado detallado",
                 "conocimientos funcionales",
                 "conocimientos tecnicos",
@@ -1442,8 +1424,6 @@ if file_vagas and file_colab:
                     col_obs if c == "observaciones necesidad" else c
                     for c in colunas_exibir
                 ]
-
-            colunas_exibir = [c for c in colunas_exibir if c in resultado.columns]
 
             st.session_state.resultado_cache = resultado
             st.session_state.colunas_cache = colunas_exibir
@@ -1673,34 +1653,33 @@ if file_vagas and file_colab:
             ).round(2).astype(str) + "%"
             resultado_exibicao = resultado_exibicao.drop(columns=["match"])
 
-        # Garante que colunas de controle interno não vazem para a interface
         if "_breakdown" in resultado_exibicao.columns:
             resultado_exibicao = resultado_exibicao.drop(columns=["_breakdown"])
 
-        # Substitui 'match' por 'Match Score (%)' na lista de colunas para manter a ordem
-        colunas_validas = []
+        final_cols = []
         for c in colunas_exibir:
             if c == "match":
-                colunas_validas.append("Match Score (%)")
+                final_cols.append("Match Score (%)")
             elif c in resultado_exibicao.columns:
-                colunas_validas.append(c)
-
-        # Força a ordem do cabeçalho exigida (ID, Matricula, Nome, Match, demais...)
-        head_cols = ["ID", "Matricula Colaborador", "Nome Colaborador", "Match Score (%)"]
-        final_cols = [c for c in head_cols if c in resultado_exibicao.columns]
-        for c in colunas_validas:
-            if c not in final_cols and c in resultado_exibicao.columns:
                 final_cols.append(c)
 
         resultado_exibicao = resultado_exibicao.loc[
             :, ~resultado_exibicao.columns.duplicated()
         ]
-        colunas_existentes_definitivas = [
-            c for c in final_cols if c in resultado_exibicao.columns
-        ]
+        
+        # Manter duplicata caso exigido na ordem de exibição
+        final_cols_exibicao = []
+        for c in colunas_exibir:
+            if c == "match":
+                final_cols_exibicao.append("Match Score (%)")
+            elif c == "lugar de trabalho definitivo_2" and "lugar de trabalho definitivo" in resultado_exibicao.columns:
+                resultado_exibicao["lugar de trabalho definitivo_dup"] = resultado_exibicao["lugar de trabalho definitivo"]
+                final_cols_exibicao.append("lugar de trabalho definitivo_dup")
+            elif c in resultado_exibicao.columns:
+                final_cols_exibicao.append(c)
 
         st.dataframe(
-            resultado_exibicao[colunas_existentes_definitivas],
+            resultado_exibicao[final_cols_exibicao],
             use_container_width=True,
             height=700,
         )
@@ -1790,11 +1769,9 @@ if file_vagas and file_colab:
 
                 **Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
 
-                **Lugar de Trabajo Vaga:** {row.get('lugar de trabalho vaga', '-')}
+                **Lugar de Trabajo:** {row.get('lugar de trabalho', '-')}
 
-                **Lugar de Trabajo Definitivo:** {row.get(target_col, '-')}
-
-                **País:** {row.get('País', '-')}
+                **Lugar de Trabajo Definitivo:** {row.get('lugar de trabalho definitivo', '-')}
 
                 **Score Match:** {round(row['match'] * 100, 2)}%
                 """)
@@ -2111,20 +2088,17 @@ if file_vagas and file_colab:
             ).round(2).astype(str) + "%"
             resultado_excel = resultado_excel.drop(columns=["match"])
 
-        colunas_validas_excel = []
+        cols_ordem_excel = []
         for c in colunas_exibir:
             if c == "match":
-                colunas_validas_excel.append("Match Score (%)")
+                cols_ordem_excel.append("Match Score (%)")
+            elif c == "lugar de trabalho definitivo_2" and "lugar de trabalho definitivo" in resultado_excel.columns:
+                resultado_excel["lugar de trabalho definitivo_dup"] = resultado_excel["lugar de trabalho definitivo"]
+                cols_ordem_excel.append("lugar de trabalho definitivo_dup")
             elif c in resultado_excel.columns:
-                colunas_validas_excel.append(c)
+                cols_ordem_excel.append(c)
 
-        head_cols = ["ID", "Matricula Colaborador", "Nome Colaborador", "Match Score (%)"]
-        cols_ordem = [c for c in head_cols if c in resultado_excel.columns]
-        for c in colunas_validas_excel:
-            if c not in cols_ordem and c in resultado_excel.columns:
-                cols_ordem.append(c)
-
-        resultado_excel = resultado_excel[cols_ordem].copy()
+        resultado_excel = resultado_excel[cols_ordem_excel].copy()
 
         excel_file = gerar_excel(resultado_excel)
 
