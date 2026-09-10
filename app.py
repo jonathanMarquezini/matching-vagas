@@ -2024,12 +2024,11 @@ if file_vagas and file_colab:
                     <div style='color:#e6edf3;font-size:15px;font-weight:700;'>Resultado geral</div>
                     <div style='color:#8b949e;font-size:12px;margin-top:2px;'>{nota_score}</div>
                 </div>
-                <div>
+                <div style='text-align: right;'>
                     <div style='color:{cor_status}; font-size:26px; font-weight:800;'>{score_pct}%</div>
-                    {_barra(score_pct)}
                 </div>
             </div>
-            <div style='color: {cor};'><span>{cor_total}</span></div>
+            {_barra(score_pct, cor_total)}
         </div>
     </div>
     """,
