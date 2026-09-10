@@ -2015,19 +2015,26 @@ if file_vagas and file_colab:
         )
 
         st.markdown(
-            f"<div"
-            f" style='background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px"
-            f" 24px;margin-bottom:20px;'>{breakdown_html}<div"
-            f" style='border-top:1px solid"
-            f" #30363d;padding-top:16px;margin-top:4px;'><div"
-            f" style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'><div><div"
-            f" style='color:#e6edf3;font-size:15px;font-weight:700;'>Resultado"
-            f" geral</div><div"
-            f" style='color:#8b949e;font-size:12px;margin-top:2px;'>{nota_score}</div></div><span"
-            f"<div style='color:{cor_status}; font-size:26px; font-weight:800;'>{score_pct}%</div>{_barra(score_pct)}"
-            f"<div style='color: {cor};'><span>{cor_total}</span></div>"
-            unsafe_allow_html=True,
-        )
+    f"""
+    <div style='background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px 24px;margin-bottom:20px;'>
+        {breakdown_html}
+        <div style='border-top:1px solid #30363d;padding-top:16px;margin-top:4px;'>
+            <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>
+                <div>
+                    <div style='color:#e6edf3;font-size:15px;font-weight:700;'>Resultado geral</div>
+                    <div style='color:#8b949e;font-size:12px;margin-top:2px;'>{nota_score}</div>
+                </div>
+                <div>
+                    <div style='color:{cor_status}; font-size:26px; font-weight:800;'>{score_pct}%</div>
+                    {_barra(score_pct)}
+                </div>
+            </div>
+            <div style='color: {cor};'><span>{cor_total}</span></div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
         st.divider()
 
