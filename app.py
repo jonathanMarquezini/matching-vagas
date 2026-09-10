@@ -2025,7 +2025,7 @@ if file_vagas and file_colab:
             f" geral</div><div"
             f" style='color:#8b949e;font-size:12px;margin-top:2px;'>{nota_score}</div></div><span"
             f"<div style='color:{cor_status}; font-size:26px; font-weight:800;'>{score_pct}%</div>{_barra(score_pct)}"
-            f" cor_total)}</div></div>",
+            f"<div style='color: {cor};'><span>{cor_total}</span></div>"
             unsafe_allow_html=True,
         )
 
