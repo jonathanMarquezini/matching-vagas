@@ -358,7 +358,16 @@ AREAS_RELACIONADAS = [
     },
     {"sap", "abap", "fiori", "hana", "erp", "s4hana"},
     {"seguranca", "security", "cyber", "pentest", "soc", "ciberseguranca"},
-    {"administrativo", "admin", "recursos", "humanos", "rh", "financeiro", "contabil", "backoffice"},
+    {
+        "administrativo",
+        "admin",
+        "recursos",
+        "humanos",
+        "rh",
+        "financeiro",
+        "contabil",
+        "backoffice",
+    },
     {
         "qualidade",
         "teste",
@@ -2015,7 +2024,7 @@ if file_vagas and file_colab:
         )
 
         st.markdown(
-    f"""
+            f"""
     <div style='background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px 24px;margin-bottom:20px;'>
         {breakdown_html}
         <div style='border-top:1px solid #30363d;padding-top:16px;margin-top:4px;'>
@@ -2032,8 +2041,8 @@ if file_vagas and file_colab:
         </div>
     </div>
     """,
-    unsafe_allow_html=True
-)
+            unsafe_allow_html=True,
+        )
 
         st.divider()
 
