@@ -2024,7 +2024,7 @@ if file_vagas and file_colab:
             f" style='color:#e6edf3;font-size:15px;font-weight:700;'>Resultado"
             f" geral</div><div"
             f" style='color:#8b949e;font-size:12px;margin-top:2px;'>{nota_score}</div></div><span"
-            f" style='color:{cor_status};font-size:26px;font-weight:800;'>{score_pct}%</span></div>{_barra(score_pct,"
+            f"<div style='color:{cor_status}; font-size:26px; font-weight:800;'>{score_pct}%</div>{_barra(score_pct)}"
             f" cor_total)}</div></div>",
             unsafe_allow_html=True,
         )
