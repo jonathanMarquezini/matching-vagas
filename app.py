@@ -432,9 +432,36 @@ def normalizar_col(nome):
     nome = str(nome).strip().lower()
     nome = unicodedata.normalize("NFD", nome)
     nome = "".join(c for c in nome if unicodedata.category(c) != "Mn")
+    nome = re.sub(r"[^\w\s]", "", nome) # Adicionado filtro extra contra pontuação invisível
     nome = re.sub(r"[\s_]+", "_", nome)
-
     return nome
+
+
+def encontrar_coluna(df, candidatos, ignorar=None):
+    if ignorar is None:
+        ignorar = []
+    
+    cols_norm = {normalizar_col(c): c for c in df.columns}
+
+    # Match exato seguro
+    for cand in candidatos:
+        cand_norm = normalizar_col(cand)
+        if cand_norm in cols_norm:
+            col_real = cols_norm[cand_norm]
+            col_real_norm = normalizar_col(col_real)
+            if not any(normalizar_col(ig) in col_real_norm for ig in ignorar):
+                return col_real
+
+    # Match de Substring
+    for cand in candidatos:
+        cand_norm = normalizar_col(cand)
+        for col_norm, col_real in cols_norm.items():
+            if cand_norm in col_norm or col_norm in cand_norm:
+                if ignorar and any(normalizar_col(ig) in col_norm for ig in ignorar):
+                    continue
+                return col_real
+
+    return None
 
 
 def normalizar_cargo(texto):
@@ -443,23 +470,6 @@ def normalizar_cargo(texto):
     t = re.sub(r"front\s+end", "frontend", t)
     t = re.sub(r"back\s+end", "backend", t)
     return t
-
-
-def encontrar_coluna(df, candidatos):
-    cols_norm = {normalizar_col(c): c for c in df.columns}
-
-    for cand in candidatos:
-        cand_norm = normalizar_col(cand)
-        if cand_norm in cols_norm:
-            return cols_norm[cand_norm]
-
-    for cand in candidatos:
-        cand_norm = normalizar_col(cand)
-        for col_norm, col_real in cols_norm.items():
-            if cand_norm in col_norm or col_norm in cand_norm:
-                return col_real
-
-    return None
 
 
 def parse_rol(rol):
@@ -1004,32 +1014,42 @@ if file_vagas and file_colab:
 
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
+    # Novo comportamento: Busca exclusiva garantindo blindagem com "ignorar"
     col_lugar_trabalho = encontrar_coluna(
         vagas,
         [
+            "lugar de trabajo",
+            "lugar de trabajo vaga",
             "lugar_de_trabajo",
             "lugar de trabalho",
             "lugar trabalho",
             "local de trabalho",
         ],
+        ignorar=["definitivo", "definitiva"]
     )
+
     if col_lugar_trabalho:
+        # Tratamento agressivo contra nulos, NaN, None e strings vazias vindas do excel
         vagas["lugar de trabalho vaga"] = (
-            vagas[col_lugar_trabalho].fillna("-").astype(str)
+            vagas[col_lugar_trabalho]
+            .replace(r'^\s*$', '-', regex=True)
+            .fillna("-")
+            .astype(str)
+            .replace(['nan', 'NaN', 'None', ''], '-')
         )
     else:
         vagas["lugar de trabalho vaga"] = "-"
 
+    # Busca independente para a coluna definitiva
     col_lugar_def = encontrar_coluna(
         vagas,
         [
+            "lugar de trabajo definitivo",
             "lugar_de_trabajo_definitivo",
             "lugar de trabalho definitivo",
             "lugar_trabajo_definitivo",
-            "lugar de trabalho definitivo",
             "lugar_trabalho_definitivo",
-            "lugar de trabajo",
-            "lugar trabalho",
+            "lugar trabalho definitivo",
             "lugar de trabajo definitivo vaga",
         ],
     )
