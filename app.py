@@ -1257,7 +1257,8 @@ if file_vagas and file_colab:
 
         st.subheader("Seleção de Colaborador")
 
-        busca = st.text_input("Digite nome ou matrícula/ID")
+        # Texto do input de busca atualizado conforme requisitado
+        busca = st.text_input("Digite nome ou matrícula")
 
         if busca:
             filtro_nome = (
@@ -1403,9 +1404,18 @@ if file_vagas and file_colab:
             with col_m3:
                 cv_status = "Sim" if texto_cv.strip() else "Não"
                 st.metric("CV utilizado no match", cv_status)
+            
+            # Adiciona as informações do colaborador diretamente no DataFrame resultante
+            resultado["ID"] = perfil_row.get("ID", "-")
+            resultado["Matricula Colaborador"] = perfil_row.get(coluna_matricula, "-") if coluna_matricula else "-"
+            resultado["Nome Colaborador"] = selecionado
+            resultado["Localidade Estado Colaborador"] = perfil_row.get("Localidade Estado Colaborador", "-")
+            resultado["Localidade Municipio Colaborador"] = perfil_row.get("Localidade Municipio Colaborador", "-")
 
             colunas_exibir = [
                 "ID",
+                "Matricula Colaborador",
+                "Nome Colaborador",
                 "proyecto",
                 "solicitante",
                 "necesidad",
@@ -1473,6 +1483,7 @@ if file_vagas and file_colab:
                 time.sleep(0.01)
 
                 id_c = colab_row.get("ID", "-")
+                matricula_c = colab_row.get(coluna_matricula, "-") if coluna_matricula else "-"
                 nome_c = colab_row.get(coluna_nome, f"Colaborador {idx+1}")
                 cargo_c = (
                     colab_row.get(coluna_nome_perfil, "-")
@@ -1490,6 +1501,7 @@ if file_vagas and file_colab:
                 if vagas_matching.empty:
                     list_sem_vagas.append({
                         "ID": id_c,
+                        "Matricula Colaborador": matricula_c,
                         "Nome Colaborador": nome_c,
                         "Cargo Colaborador": cargo_c,
                         "Rol Colaborador": rol_c,
@@ -1513,6 +1525,7 @@ if file_vagas and file_colab:
                         score_formatado = f"{round(vaga_row['match'] * 100, 2)}%"
                         registro = {
                             "ID": id_c,
+                            "Matricula Colaborador": matricula_c,
                             "Nome Colaborador": nome_c,
                             "Cargo Colaborador": cargo_c,
                             "Rol Colaborador": rol_c,
@@ -1664,27 +1677,26 @@ if file_vagas and file_colab:
         if "_breakdown" in resultado_exibicao.columns:
             resultado_exibicao = resultado_exibicao.drop(columns=["_breakdown"])
 
-        colunas_validas = [
-            c for c in colunas_exibir if c in resultado_exibicao.columns
-        ]
-        for extra_col in ["ID", "Match Score (%)"]:
-            if (
-                extra_col in resultado_exibicao.columns
-                and extra_col not in colunas_validas
-            ):
-                colunas_validas.insert(0, extra_col)
+        # Substitui 'match' por 'Match Score (%)' na lista de colunas para manter a ordem
+        colunas_validas = []
+        for c in colunas_exibir:
+            if c == "match":
+                colunas_validas.append("Match Score (%)")
+            elif c in resultado_exibicao.columns:
+                colunas_validas.append(c)
+
+        # Força a ordem do cabeçalho exigida (ID, Matricula, Nome, Match, demais...)
+        head_cols = ["ID", "Matricula Colaborador", "Nome Colaborador", "Match Score (%)"]
+        final_cols = [c for c in head_cols if c in resultado_exibicao.columns]
+        for c in colunas_validas:
+            if c not in final_cols and c in resultado_exibicao.columns:
+                final_cols.append(c)
 
         resultado_exibicao = resultado_exibicao.loc[
             :, ~resultado_exibicao.columns.duplicated()
         ]
-        colunas_validas = list(dict.fromkeys(colunas_validas))
-
-        if "ID" in colunas_validas:
-            colunas_validas.remove("ID")
-        colunas_validas = ["ID"] + [c for c in colunas_validas if c != "ID"]
-
         colunas_existentes_definitivas = [
-            col for col in colunas_validas if col in resultado_exibicao.columns
+            c for c in final_cols if c in resultado_exibicao.columns
         ]
 
         st.dataframe(
@@ -2099,21 +2111,20 @@ if file_vagas and file_colab:
             ).round(2).astype(str) + "%"
             resultado_excel = resultado_excel.drop(columns=["match"])
 
-        colunas_validas_excel = [
-            col for col in colunas_exibir if col in resultado_excel.columns
-        ]
-        for extra_col in ["ID", "Match Score (%)"]:
-            if (
-                extra_col in resultado_excel.columns
-                and extra_col not in colunas_validas_excel
-            ):
-                colunas_validas_excel.insert(0, extra_col)
+        colunas_validas_excel = []
+        for c in colunas_exibir:
+            if c == "match":
+                colunas_validas_excel.append("Match Score (%)")
+            elif c in resultado_excel.columns:
+                colunas_validas_excel.append(c)
 
-        resultado_excel = resultado_excel[colunas_validas_excel].copy()
+        head_cols = ["ID", "Matricula Colaborador", "Nome Colaborador", "Match Score (%)"]
+        cols_ordem = [c for c in head_cols if c in resultado_excel.columns]
+        for c in colunas_validas_excel:
+            if c not in cols_ordem and c in resultado_excel.columns:
+                cols_ordem.append(c)
 
-        if "ID" in resultado_excel.columns:
-            cols_ordem = ["ID"] + [c for c in resultado_excel.columns if c != "ID"]
-            resultado_excel = resultado_excel[cols_ordem]
+        resultado_excel = resultado_excel[cols_ordem].copy()
 
         excel_file = gerar_excel(resultado_excel)
 
