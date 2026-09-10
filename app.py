@@ -270,17 +270,107 @@ AREAS_RELACIONADAS = [
         "databricks",
         "pipeline",
     },
-    {"oracle", "sql", "plsql", "database", "dba", "banco", "teradata", "mysql", "postgres", "sqlserver"},
-    {"devops", "infra", "cloud", "aws", "azure", "gcp", "kubernetes", "docker", "sre", "plataforma", "linux", "ansible", "terraform"},
-    {"rpa", "automacao", "automation", "uipath", "blueprism", "powerautomate", "robotica"},
-    {"suporte", "support", "servicedesk", "helpdesk", "atendimento", "infraestrutura", "sustentacao", "incidente"},
-    {"pmo", "projeto", "gestao", "coordenacao", "coordenador", "gerente", "manager", "scrum", "agil", "master", "product", "owner", "lideranca"},
-    {"arquiteto", "arquitetura", "solucao", "sistemas", "solucoes", "enterprise", "microservicos", "integracao", "middleware"},
-    {"funcional", "negocios", "negocio", "requisitos", "processos", "produto", "business", "analista", "analyst", "funcional", "levantamento", "mapeamento"},
+    {
+        "oracle",
+        "sql",
+        "plsql",
+        "database",
+        "dba",
+        "banco",
+        "teradata",
+        "mysql",
+        "postgres",
+        "sqlserver",
+    },
+    {
+        "devops",
+        "infra",
+        "cloud",
+        "aws",
+        "azure",
+        "gcp",
+        "kubernetes",
+        "docker",
+        "sre",
+        "plataforma",
+        "linux",
+        "ansible",
+        "terraform",
+    },
+    {
+        "rpa",
+        "automacao",
+        "automation",
+        "uipath",
+        "blueprism",
+        "powerautomate",
+        "robotica",
+    },
+    {
+        "suporte",
+        "support",
+        "servicedesk",
+        "helpdesk",
+        "atendimento",
+        "infraestrutura",
+        "sustentacao",
+        "incidente",
+    },
+    {
+        "pmo",
+        "projeto",
+        "gestao",
+        "coordenacao",
+        "coordenador",
+        "gerente",
+        "manager",
+        "scrum",
+        "agil",
+        "master",
+        "product",
+        "owner",
+        "lideranca",
+    },
+    {
+        "arquiteto",
+        "arquitetura",
+        "solucao",
+        "sistemas",
+        "solucoes",
+        "enterprise",
+        "microservicos",
+        "integracao",
+        "middleware",
+    },
+    {
+        "funcional",
+        "negocios",
+        "negocio",
+        "requisitos",
+        "processos",
+        "produto",
+        "business",
+        "analista",
+        "analyst",
+        "funcional",
+        "levantamento",
+        "mapeamento",
+    },
     {"sap", "abap", "fiori", "hana", "erp", "s4hana"},
     {"seguranca", "security", "cyber", "pentest", "soc", "ciberseguranca"},
     {"administrativo", "admin", "recursos", "humanos", "rh", "financeiro", "contabil", "backoffice"},
-    {"qualidade", "teste", "testes", "quality", "qa", "automacao", "selenium", "cypress", "jira", "testador"},
+    {
+        "qualidade",
+        "teste",
+        "testes",
+        "quality",
+        "qa",
+        "automacao",
+        "selenium",
+        "cypress",
+        "jira",
+        "testador",
+    },
     {"net", "dotnet", "csharp", "aspnet", "azure", "microsoft"},
     {"php", "laravel", "symfony", "web", "wordpress", "drupal"},
 ]
@@ -865,7 +955,9 @@ if file_vagas and file_colab:
   if rename_cols:
     colab = colab.rename(columns=rename_cols)
 
-  coluna_id = encontrar_coluna(colab, ["id", "matricula", "codigo", "employee_id"])
+  coluna_id = encontrar_coluna(
+      colab, ["id", "matricula", "codigo", "employee_id"]
+  )
   if coluna_id:
     colab["ID"] = colab[coluna_id].fillna("-").astype(str)
   else:
@@ -961,7 +1053,6 @@ if file_vagas and file_colab:
   if col_obs is None:
     col_obs = next((c for c in vagas.columns if "observaciones" in c), None)
 
-
   def extrair_hibrido(texto):
     if pd.isna(texto) or str(texto).strip() == "":
       return "-"
@@ -970,7 +1061,6 @@ if file_vagas and file_colab:
     if match:
       return match.group(1).strip()
     return "-"
-
 
   if col_obs:
     vagas["outros"] = vagas[col_obs].apply(extrair_hibrido)
@@ -1078,7 +1168,8 @@ if file_vagas and file_colab:
   )
 
   col_loc_estado = encontrar_coluna(
-      colab, ["localidade estado colaborador", "localidade_estado", "estado", "uf"]
+      colab,
+      ["localidade estado colaborador", "localidade_estado", "estado", "uf"],
   )
   if col_loc_estado and col_loc_estado in colab.columns:
     colab["Localidade Estado Colaborador"] = (
@@ -1288,7 +1379,7 @@ if file_vagas and file_colab:
           "match",
           "perfil profesional",
           "perfil solicitado resumido",
-          "lugar de trabajo vaga",
+          "lugar de trabalho vaga",
           target_col,
           "País",
           "Localidade Estado Colaborador",
@@ -1647,7 +1738,7 @@ if file_vagas and file_colab:
 
         **Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
 
-        **Lugar de Trabajo Vaga:** {row.get('lugar de trabajo vaga', '-')}
+        **Lugar de Trabajo Vaga:** {row.get('lugar de trabalho vaga', '-')}
 
         **Lugar de Trabajo Definitivo:** {row.get(target_col, '-')}
 
@@ -1668,7 +1759,6 @@ if file_vagas and file_colab:
             unsafe_allow_html=True,
         )
 
-
         def _barra(pct, cor):
           pct_clip = min(pct, 100)
           return (
@@ -1677,7 +1767,6 @@ if file_vagas and file_colab:
               f" style='width:{pct_clip}%;background:{cor};height:14px;border-radius:8px;transition:width"
               " .4s ease;'></div></div>"
           )
-
 
         def _linha(
             label,
@@ -1689,11 +1778,6 @@ if file_vagas and file_colab:
             ok,
             faltou="",
         ):
-          icone = (
-              "OK:"
-              if ok
-              else ("AVISO:" if pct_exibir > 0 else "ERRO:")
-          )
           status = (
               "Compatível"
               if ok
@@ -1723,18 +1807,19 @@ if file_vagas and file_colab:
               if not ok and faltou
               else ""
           )
+
+          barra_html = _barra(pct_barra, cor)
+
           return (
               f"<div style='margin-bottom:20px;'><div"
               f" style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;'><span"
               f" style='color:#e6edf3;font-weight:600;font-size:14px;'>{label}</span><span"
               f" style='background:{cor_status}22;color:{cor_status};font-size:12px;font-weight:600;padding:2px"
-              f" 10px;border-radius:20px;'>{status}</span></div>{_barra(pct_barra,"
-              f" cor)}<div"
+              f" 10px;border-radius:20px;'>{status}</span></div>{barra_html}<div"
               f" style='display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;flex-wrap:wrap;gap:6px;'><div"
               f" style='display:flex;gap:16px;'>{detalhe_colab} &nbsp;|&nbsp;"
               f" {detalhe_vaga}</div>{contribuicao}</div>{alerta}</div>"
           )
-
 
         bd = row.get(
             "_breakdown",
