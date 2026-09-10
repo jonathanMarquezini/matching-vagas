@@ -1053,8 +1053,6 @@ if file_vagas and file_colab:
             .replace(['nan', 'NaN', 'None', ''], '-')
         )
 
-    # Nota: A separação em País / Estado é mantida exclusivamente para o Relatório Massivo se necessário,
-    # mas na Análise Individual mantemos o target_col original sem alterá-lo.
     paises = []
     locais = []
     for val in vagas[target_col].astype(str):
