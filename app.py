@@ -1050,7 +1050,6 @@ if file_vagas and file_colab:
             .replace(['nan', 'NaN', 'None', ''], '-')
         )
         
-        # Tratamento solicitado: se vier "Pais - Cidade", extrair apenas a cidade (ex: Brasil - Brasilia -> Brasilia)
         locais_def_tratados = []
         for val in valores_def:
             if " - " in val:
@@ -1400,7 +1399,7 @@ if file_vagas and file_colab:
                 st.metric("CV utilizado no match", cv_status)
             
             if "lugar de trabalho vaga" in resultado.columns:
-                resultado = resultado.rename(columns={"lugar de trabalho vaga": "lugar de trabalho"})
+                resultado = resultado.rename(columns={"lugar de trabalho vaga": "Lugar de Trabajo Vaga"})
             if target_col in resultado.columns and target_col != "lugar de trabalho definitivo vaga":
                 resultado = resultado.rename(columns={target_col: "lugar de trabalho definitivo vaga"})
 
@@ -1414,7 +1413,8 @@ if file_vagas and file_colab:
                 "match",
                 "perfil profesional",
                 "perfil solicitado resumido",
-                "lugar de trabalho",
+                "Lugar de Trabajo Vaga",
+                "País",
                 "lugar de trabalho definitivo vaga",
                 "perfil solicitado detallado",
                 "conocimientos funcionales",
@@ -1762,7 +1762,9 @@ if file_vagas and file_colab:
 
                 **Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
 
-                **Lugar de Trabajo:** {row.get('lugar de trabalho', '-')}
+                **Lugar de Trabajo Vaga:** {row.get('Lugar de Trabajo Vaga', '-')}
+
+                **País:** {row.get('País', '-')}
 
                 **Lugar de Trabajo Definitivo Vaga:** {row.get('lugar de trabalho definitivo vaga', '-')}
 
