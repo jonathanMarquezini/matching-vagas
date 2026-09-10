@@ -721,7 +721,7 @@ if file_vagas and file_colab:
     vagas["texto"] = vagas["texto"].apply(limpar_texto)
 
     # Identificação e renomeação solicitada para colunas da base de vagas
-    col_lugar_trabalho = encontrar_coluna(vagas, ["lugar_de_trabajo", "lugar de trabajo", "lugar trabajo", "local de trabalho"])
+    col_lugar_trabalho = encontrar_coluna(vagas, ["lugar_de_trabajo", "lugar de trabajo", "lugar trabalho", "local de trabalho"])
     if col_lugar_trabalho:
         vagas["lugar de trabajo vaga"] = vagas[col_lugar_trabalho].fillna("-").astype(str)
     else:
@@ -1136,22 +1136,21 @@ if file_vagas and file_colab:
             resultado_exibicao["Match Score (%)"] = (resultado_exibicao["match"] * 100).round(2).astype(str) + "%"
             resultado_exibicao = resultado_exibicao.drop(columns=["match"])
 
-        colunas_exibir = ["Match Score (%)" if c == "match" else c for c in colunas_exibir]
-
-        # Garantir os nomes corretos para visualização e reordenação (ID na primeira coluna)
-        if "lugar_de_trabalho_definitivo_real" in resultado_exibicao.columns:
-            resultado_exibicao = resultado_exibicao.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo vaga"})
-            colunas_exibir = ["lugar de trabajo definitivo vaga" if c == "lugar_de_trabalho_definitivo_real" else c for c in colunas_exibir]
+        # Validação segura para evitar KeyError com colunas ausentes
+        colunas_validas = [c for c in colunas_exibir if c in resultado_exibicao.columns]
+        for extra_col in ["ID", "Match Score (%)"]:
+            if extra_col in resultado_exibicao.columns and extra_col not in colunas_validas:
+                colunas_validas.insert(0, extra_col)
 
         resultado_exibicao = resultado_exibicao.loc[:, ~resultado_exibicao.columns.duplicated()]
-        colunas_exibir = list(dict.fromkeys(colunas_exibir))
+        colunas_validas = list(dict.fromkeys(colunas_validas))
 
-        if "ID" in colunas_exibir:
-            colunas_exibir.remove("ID")
-        colunas_exibir = ["ID"] + colunas_exibir
+        if "ID" in colunas_validas:
+            colunas_validas.remove("ID")
+        colunas_validas = ["ID"] + [c for c in colunas_validas if c != "ID"]
 
         st.dataframe(
-            resultado_exibicao[colunas_exibir],
+            resultado_exibicao[colunas_validas],
             use_container_width=True,
             height=700
         )
@@ -1448,11 +1447,12 @@ if file_vagas and file_colab:
             resultado_excel["Match Score (%)"] = (resultado_excel["match"] * 100).round(2).astype(str) + "%"
             resultado_excel = resultado_excel.drop(columns=["match"])
 
-        if "lugar_de_trabalho_definitivo_real" in resultado_excel.columns:
-            resultado_excel = resultado_excel.rename(columns={"lugar_de_trabalho_definitivo_real": "lugar de trabajo definitivo vaga"})
+        colunas_validas_excel = [col for col in colunas_exibir if col in resultado_excel.columns]
+        for extra_col in ["ID", "Match Score (%)"]:
+            if extra_col in resultado_excel.columns and extra_col not in colunas_validas_excel:
+                colunas_validas_excel.insert(0, extra_col)
 
-        colunas_validas = [col for col in colunas_exibir if col in resultado_excel.columns]
-        resultado_excel = resultado_excel[colunas_validas].copy()
+        resultado_excel = resultado_excel[colunas_validas_excel].copy()
         
         if "ID" in resultado_excel.columns:
             cols_ordem = ["ID"] + [c for c in resultado_excel.columns if c != "ID"]
