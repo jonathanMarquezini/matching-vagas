@@ -1045,6 +1045,7 @@ if file_vagas and file_colab:
     else:
         vagas["lugar de trabalho vaga"] = "-"
 
+    # Correção aprimorada para buscar dinamicamente e evitar traços em branco
     col_lugar_def = encontrar_coluna(
         vagas,
         [
@@ -1061,17 +1062,20 @@ if file_vagas and file_colab:
     target_col = "lugar de trabajo definitivo vaga"
     
     if col_lugar_def:
-        valores_def = (
-            vagas[col_lugar_def]
-            .replace(r'^\s*$', '-', regex=True)
-            .fillna("-")
-            .astype(str)
-            .replace(['nan', 'NaN', 'None', ''], '-')
-        )
+        valores_def = vagas[col_lugar_def].astype(str).str.strip()
+        valores_def = valores_def.replace(['nan', 'NaN', 'None', '', '-'], pd.NA)
+        
+        # Se encontrou valores vazios na coluna principal, tenta buscar colunas auxiliares de localidade/projeto/observação
+        if valores_def.isna().all() or (valores_def == "-").all():
+            col_aux_loc = encontrar_coluna(vagas, ["lugar", "localidade", "cidade", "estado", "proyecto", "observaciones"])
+            if col_aux_loc and col_aux_loc != col_lugar_def:
+                valores_def = vagas[col_aux_loc].astype(str).str.strip()
+
+        valores_def = valores_def.fillna("-").replace(['nan', 'NaN', 'None', ''], '-')
         
         locais_def_tratados = []
         for val in valores_def:
-            if " - " in val:
+            if val != "-" and " - " in val:
                 partes = val.split(" - ", 1)
                 locais_def_tratados.append(partes[1].strip())
             else:
@@ -1841,12 +1845,13 @@ if file_vagas and file_colab:
                         f"<span style='color:#8b949e;font-size:11px;'>Contribuição para"
                         f" o score: <b style='color:#e6edf3;'>{pct_exibir:.1f}%</b></span>"
                     )
+                    
+                    # Alerta ajustado conforme solicitação do usuário
                     alerta = (
                         f"<div"
                         f" style='margin-top:6px;background:#f0883e18;border-left:3px"
                         f" solid"
-                        f" #f0883e;border-radius:4px;padding:6px 10px;font-size:12px;color:#f0883e;'>Aviso:"
-                        f" {faltou}</div>"
+                        f" #f0883e;border-radius:4px;padding:6px 10px;font-size:12px;color:#f0883e;'>{faltou}</div>"
                         if not ok and faltou
                         else ""
                     )
@@ -2048,13 +2053,15 @@ if file_vagas and file_colab:
                 )
 
                 loc_ok = loc_match
+                # Texto atualizado estritamente conforme solicitado
+                info_adicional = outros_vaga if outros_vaga != "-" else obs_necesidad
                 faltou_loc = (
                     ""
                     if loc_ok
                     else (
-                        f"As localidades diferem (Colaborador: {loc_colab_str} | Vaga: {loc_vaga_str}). "
-                        f"Verifique nas observações se a vaga é Híbrida, Remota ou Presencial. "
-                        f"(Info: {outros_vaga if outros_vaga != '-' else obs_necesidad})"
+                        f"A localidade do colaborador difere da vaga. "
+                        f"Valide nas observações se a vaga pede Presencial, Híbrido ou 100% Remoto. "
+                        f"(Info: {info_adicional})"
                     )
                 )
                 breakdown_html += _linha(
