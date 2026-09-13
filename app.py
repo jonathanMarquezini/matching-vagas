@@ -1045,7 +1045,6 @@ if file_vagas and file_colab:
     else:
         vagas["lugar de trabalho vaga"] = "-"
 
-    # Correção aprimorada para buscar dinamicamente e evitar traços em branco
     col_lugar_def = encontrar_coluna(
         vagas,
         [
@@ -1065,7 +1064,6 @@ if file_vagas and file_colab:
         valores_def = vagas[col_lugar_def].astype(str).str.strip()
         valores_def = valores_def.replace(['nan', 'NaN', 'None', '', '-'], pd.NA)
         
-        # Se encontrou valores vazios na coluna principal, tenta buscar colunas auxiliares de localidade/projeto/observação
         if valores_def.isna().all() or (valores_def == "-").all():
             col_aux_loc = encontrar_coluna(vagas, ["lugar", "localidade", "cidade", "estado", "proyecto", "observaciones"])
             if col_aux_loc and col_aux_loc != col_lugar_def:
@@ -1846,7 +1844,6 @@ if file_vagas and file_colab:
                         f" o score: <b style='color:#e6edf3;'>{pct_exibir:.1f}%</b></span>"
                     )
                     
-                    # Alerta ajustado conforme solicitação do usuário
                     alerta = (
                         f"<div"
                         f" style='margin-top:6px;background:#f0883e18;border-left:3px"
@@ -1896,8 +1893,6 @@ if file_vagas and file_colab:
                 loc_match = bd.get("loc_match", False)
                 loc_colab_str = bd.get("loc_colab", "-")
                 loc_vaga_str = bd.get("loc_vaga", "-")
-                outros_vaga = str(row.get("outros", "-"))
-                obs_necesidad = str(row.get("observaciones necesidad", "-"))
 
                 rol_colab_val = (
                     str(
@@ -2053,24 +2048,24 @@ if file_vagas and file_colab:
                 )
 
                 loc_ok = loc_match
-                # Texto atualizado estritamente conforme solicitado
-                info_adicional = outros_vaga if outros_vaga != "-" else obs_necesidad
+                # Texto atualizado estritamente conforme solicitado (sem o campo de obs e trazendo o lugar de trabalho definitivo da vaga corretamente)
+                vaga_localidade_solicitacao = row.get("lugar de trabalho definitivo vaga", "-")
                 faltou_loc = (
                     ""
                     if loc_ok
                     else (
-                        f"A localidade do colaborador difere da vaga. "
-                        f"Valide nas observações se a vaga pede Presencial, Híbrido ou 100% Remoto. "
-                        f"(Info: {info_adicional})"
+                        f"A localidade do colaborador é diferente ao da vaga. Valide nas observações se a vaga solicita Presencial, Híbrido ou 100% Remoto."
                     )
                 )
+                
+                # Ajustando o display do rótulo da vaga para refletir 'Vaga exige: [lugar de trabalho definitivo]'
                 breakdown_html += _linha(
                     "A localidade do colaborador coincide com a vaga?",
                     p_loc if loc_ok else 0,
                     p_loc if loc_ok else 0,
                     "#238636" if loc_ok else "#f0883e",
                     loc_colab_str,
-                    loc_vaga_str,
+                    vaga_localidade_solicitacao,
                     loc_ok,
                     faltou_loc,
                 )
