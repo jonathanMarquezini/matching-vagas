@@ -806,11 +806,12 @@ def calcular_matching_colaborador(
     vectors = vectorizer.fit_transform(corpus)
     scores = cosine_similarity(vectors[-1], vectors[:-1])[0]
 
-    PESO_TFIDF = 0.40
-    PESO_CARGO = 0.25
+    PESO_TFIDF = 0.35
+    PESO_CARGO = 0.20
     PESO_ROL = 0.15
     PESO_TAXA = 0.10
     PESO_CV = 0.10
+    PESO_LOCALIDADE = 0.10
 
     tem_perfil_suficiente = len(perfil_texto.split()) >= 10
 
@@ -878,19 +879,32 @@ def calcular_matching_colaborador(
             else 0.0
         )
 
+        loc_c = limpar_texto(str(perfil_row.get("Localidade Municipio Colaborador", "")))
+        loc_v = limpar_texto(str(row_vaga_i.get("lugar de trabalho definitivo vaga", "")))
+
+        if loc_c and loc_v and loc_c != "-" and loc_v != "-":
+            if loc_c in loc_v or loc_v in loc_c:
+                score_localidade = 1.0
+            else:
+                score_localidade = 0.0
+        else:
+            score_localidade = 0.5
+
         if tem_perfil_suficiente:
             p_tfidf = PESO_TFIDF
             p_cargo = PESO_CARGO
             p_rol = PESO_ROL
             p_taxa = PESO_TAXA
             p_cv = PESO_CV
+            p_localidade = PESO_LOCALIDADE
         else:
-            extra = PESO_TFIDF / 3
+            extra = PESO_TFIDF / 5
             p_tfidf = 0.0
             p_cargo = PESO_CARGO + extra
             p_rol = PESO_ROL + extra
             p_taxa = PESO_TAXA + extra
-            p_cv = PESO_CV
+            p_cv = PESO_CV + extra
+            p_localidade = PESO_LOCALIDADE + extra
 
         score_final = (
             score_tfidf * p_tfidf
@@ -898,6 +912,7 @@ def calcular_matching_colaborador(
             + score_rol * p_rol
             + score_taxa * p_taxa
             + score_cv * p_cv
+            + score_localidade * p_localidade
         )
 
         final_scores.append(round(score_final, 4))
@@ -907,8 +922,12 @@ def calcular_matching_colaborador(
             "rol": round(score_rol * p_rol, 4),
             "taxa": round(score_taxa * p_taxa, 4),
             "cv": round(score_cv * p_cv, 4),
+            "localidade": round(score_localidade * p_localidade, 4),
             "total": round(score_final, 4),
             "perfil_suficiente": tem_perfil_suficiente,
+            "loc_match": (loc_c and loc_v and loc_c != "-" and loc_v != "-" and (loc_c in loc_v or loc_v in loc_c)),
+            "loc_colab": str(perfil_row.get("Localidade Municipio Colaborador", "-")),
+            "loc_vaga": str(row_vaga_i.get("lugar de trabalho definitivo vaga", "-")),
         })
 
     vagas_filtradas["match"] = final_scores
@@ -1853,7 +1872,11 @@ if file_vagas and file_colab:
                         "rol": 0,
                         "taxa": 0,
                         "cv": 0,
+                        "localidade": 0,
                         "total": row["match"],
+                        "loc_match": False,
+                        "loc_colab": "-",
+                        "loc_vaga": "-",
                     },
                 )
 
@@ -1864,6 +1887,12 @@ if file_vagas and file_colab:
                 p_skills = round(bd["rol"] * 100, 1)
                 p_cv = round(bd["cv"] * 100, 1)
                 p_taxa = round(bd["taxa"] * 100, 1)
+                p_loc = round(bd["localidade"] * 100, 1)
+                loc_match = bd.get("loc_match", False)
+                loc_colab_str = bd.get("loc_colab", "-")
+                loc_vaga_str = bd.get("loc_vaga", "-")
+                outros_vaga = str(row.get("outros", "-"))
+                obs_necesidad = str(row.get("observaciones necesidad", "-"))
 
                 rol_colab_val = (
                     str(
@@ -2016,6 +2045,27 @@ if file_vagas and file_colab:
                     "Requisitos técnicos da vaga",
                     cv_ok,
                     faltou_cv,
+                )
+
+                loc_ok = loc_match
+                faltou_loc = (
+                    ""
+                    if loc_ok
+                    else (
+                        f"As localidades diferem (Colaborador: {loc_colab_str} | Vaga: {loc_vaga_str}). "
+                        f"Verifique nas observações se a vaga é Híbrida, Remota ou Presencial. "
+                        f"(Info: {outros_vaga if outros_vaga != '-' else obs_necesidad})"
+                    )
+                )
+                breakdown_html += _linha(
+                    "A localidade do colaborador coincide com a vaga?",
+                    p_loc if loc_ok else 0,
+                    p_loc if loc_ok else 0,
+                    "#238636" if loc_ok else "#f0883e",
+                    loc_colab_str,
+                    loc_vaga_str,
+                    loc_ok,
+                    faltou_loc,
                 )
 
                 cor_total = (
