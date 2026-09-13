@@ -892,14 +892,23 @@ def calcular_matching_colaborador(
 
         loc_c_norm = normalizar_localidade(str(perfil_row.get("Localidade Municipio Colaborador", "")))
         loc_v_norm = normalizar_localidade(str(row_vaga_i.get("lugar de trabalho definitivo vaga", "")))
+        loc_e_norm = normalizar_localidade(str(perfil_row.get("Localidade Estado Colaborador", "")))
 
+        # Correção robusta para localidade (ex: colaborador de São Paulo e vaga em São Paulo)
+        is_loc_match = False
         if loc_c_norm and loc_v_norm and loc_c_norm != "-" and loc_v_norm != "-":
-            if loc_c_norm in loc_v_norm or loc_v_norm in loc_c_norm:
-                score_localidade = 1.0
-            else:
-                score_localidade = 0.0
-        else:
+            if loc_c_norm in loc_v_norm or loc_v_norm in loc_c_norm or loc_e_norm in loc_v_norm or loc_v_norm in loc_e_norm:
+                is_loc_match = True
+        elif loc_e_norm and loc_v_norm and loc_e_norm != "-" and loc_v_norm != "-":
+            if loc_e_norm in loc_v_norm or loc_v_norm in loc_e_norm:
+                is_loc_match = True
+        
+        # Se não houver dados explícitos de localidade cadastrados, assume neutro, mas se ambos indicarem SP, pontua 100%
+        if not loc_c_norm or loc_c_norm == "-":
             score_localidade = 0.5
+            is_loc_match = True
+        else:
+            score_localidade = 1.0 if is_loc_match else 0.0
 
         if tem_perfil_suficiente:
             p_tfidf = PESO_TFIDF
@@ -936,7 +945,7 @@ def calcular_matching_colaborador(
             "localidade": round(score_localidade * p_localidade, 4),
             "total": round(score_final, 4),
             "perfil_suficiente": tem_perfil_suficiente,
-            "loc_match": (loc_c_norm and loc_v_norm and loc_c_norm != "-" and loc_v_norm != "-" and (loc_c_norm in loc_v_norm or loc_v_norm in loc_c_norm)),
+            "loc_match": is_loc_match,
             "loc_colab": str(perfil_row.get("Localidade Municipio Colaborador", "-")),
             "loc_vaga": str(row_vaga_i.get("lugar de trabalho definitivo vaga", "-")),
         })
