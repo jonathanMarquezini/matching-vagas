@@ -806,18 +806,13 @@ def calcular_matching_colaborador(
     vectors = vectorizer.fit_transform(corpus)
     scores = cosine_similarity(vectors[-1], vectors[:-1])[0]
 
-    # --- PESOS ATUALIZADOS PARA A INCLUSÃO DE LOCALIDADE ---
-    PESO_TFIDF = 0.35  
+    PESO_TFIDF = 0.40
     PESO_CARGO = 0.25
     PESO_ROL = 0.15
     PESO_TAXA = 0.10
     PESO_CV = 0.10
-    PESO_LOCAL = 0.05 
 
     tem_perfil_suficiente = len(perfil_texto.split()) >= 10
-    
-    # Nova variável para a análise da localidade do colaborador
-    loc_colab_calc = limpar_texto(str(perfil_row.get("Localidade Municipio Colaborador", "")))
 
     termos_cargo = []
     cargo_normalizado = ""
@@ -882,19 +877,13 @@ def calcular_matching_colaborador(
             if (texto_cv_limpo and tem_skill_direta(texto_cv_limpo, row_texto))
             else 0.0
         )
-        
-        # --- CÁLCULO DA LOCALIDADE ---
-        loc_vaga_calc = limpar_texto(str(row_vaga_i.get("lugar de trabalho definitivo vaga", "")))
-        score_local = 1.0 if (loc_colab_calc and loc_vaga_calc and loc_colab_calc == loc_vaga_calc) else 0.0
 
-        # --- DISTRIBUIÇÃO DOS PESOS ---
         if tem_perfil_suficiente:
             p_tfidf = PESO_TFIDF
             p_cargo = PESO_CARGO
             p_rol = PESO_ROL
             p_taxa = PESO_TAXA
             p_cv = PESO_CV
-            p_local = PESO_LOCAL
         else:
             extra = PESO_TFIDF / 3
             p_tfidf = 0.0
@@ -902,16 +891,13 @@ def calcular_matching_colaborador(
             p_rol = PESO_ROL + extra
             p_taxa = PESO_TAXA + extra
             p_cv = PESO_CV
-            p_local = PESO_LOCAL
 
-        # --- SOMA FINAL ---
         score_final = (
             score_tfidf * p_tfidf
             + score_cargo * p_cargo
             + score_rol * p_rol
             + score_taxa * p_taxa
             + score_cv * p_cv
-            + score_local * p_local
         )
 
         final_scores.append(round(score_final, 4))
@@ -921,7 +907,6 @@ def calcular_matching_colaborador(
             "rol": round(score_rol * p_rol, 4),
             "taxa": round(score_taxa * p_taxa, 4),
             "cv": round(score_cv * p_cv, 4),
-            "local": round(score_local * p_local, 4),
             "total": round(score_final, 4),
             "perfil_suficiente": tem_perfil_suficiente,
         })
@@ -1868,7 +1853,6 @@ if file_vagas and file_colab:
                         "rol": 0,
                         "taxa": 0,
                         "cv": 0,
-                        "local": 0,
                         "total": row["match"],
                     },
                 )
@@ -1880,7 +1864,6 @@ if file_vagas and file_colab:
                 p_skills = round(bd["rol"] * 100, 1)
                 p_cv = round(bd["cv"] * 100, 1)
                 p_taxa = round(bd["taxa"] * 100, 1)
-                p_local = round(bd.get("local", 0) * 100, 1)
 
                 rol_colab_val = (
                     str(
@@ -2034,29 +2017,6 @@ if file_vagas and file_colab:
                     cv_ok,
                     faltou_cv,
                 )
-                
-                # --- NOVO BLOCO VISUAL DE LOCALIDADE ---
-                loc_colab_val = str(colab[colab[coluna_nome] == selecionado].iloc[0].get("Localidade Municipio Colaborador", "—"))
-                loc_vaga_val = str(row.get("lugar de trabalho definitivo vaga", "—"))
-                
-                local_ok = p_local > 0
-                faltou_local = (
-                    ""
-                    if local_ok
-                    else "Localidades diferentes. Analise manualmente se a vaga exige presencial, modelo híbrido ou permite 100% remoto."
-                )
-                
-                breakdown_html += _linha(
-                    "A localidade do colaborador coincide com a vaga?",
-                    p_local,
-                    5.0 if local_ok else 0.0,
-                    "#238636" if local_ok else "#f0883e", 
-                    loc_colab_val,
-                    loc_vaga_val,
-                    local_ok,
-                    faltou_local,
-                )
-                # ---------------------------------------
 
                 cor_total = (
                     "#238636"
