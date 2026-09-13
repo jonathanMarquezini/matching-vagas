@@ -398,6 +398,17 @@ def limpar_texto(texto):
     return texto.strip()
 
 
+def normalizar_localidade(texto):
+    if pd.isna(texto):
+        return ""
+    t = str(texto).lower()
+    t = unicodedata.normalize("NFD", t)
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    t = re.sub(r"[^\w\s]", " ", t)
+    t = re.sub(r"\s+", " ", t)
+    return t.strip()
+
+
 def limpar_texto_modelo(texto):
     if pd.isna(texto):
         return ""
@@ -879,11 +890,11 @@ def calcular_matching_colaborador(
             else 0.0
         )
 
-        loc_c = limpar_texto(str(perfil_row.get("Localidade Municipio Colaborador", "")))
-        loc_v = limpar_texto(str(row_vaga_i.get("lugar de trabalho definitivo vaga", "")))
+        loc_c_norm = normalizar_localidade(str(perfil_row.get("Localidade Municipio Colaborador", "")))
+        loc_v_norm = normalizar_localidade(str(row_vaga_i.get("lugar de trabalho definitivo vaga", "")))
 
-        if loc_c and loc_v and loc_c != "-" and loc_v != "-":
-            if loc_c in loc_v or loc_v in loc_c:
+        if loc_c_norm and loc_v_norm and loc_c_norm != "-" and loc_v_norm != "-":
+            if loc_c_norm in loc_v_norm or loc_v_norm in loc_c_norm:
                 score_localidade = 1.0
             else:
                 score_localidade = 0.0
@@ -925,7 +936,7 @@ def calcular_matching_colaborador(
             "localidade": round(score_localidade * p_localidade, 4),
             "total": round(score_final, 4),
             "perfil_suficiente": tem_perfil_suficiente,
-            "loc_match": (loc_c and loc_v and loc_c != "-" and loc_v != "-" and (loc_c in loc_v or loc_v in loc_c)),
+            "loc_match": (loc_c_norm and loc_v_norm and loc_c_norm != "-" and loc_v_norm != "-" and (loc_c_norm in loc_v_norm or loc_v_norm in loc_c_norm)),
             "loc_colab": str(perfil_row.get("Localidade Municipio Colaborador", "-")),
             "loc_vaga": str(row_vaga_i.get("lugar de trabalho definitivo vaga", "-")),
         })
@@ -2048,7 +2059,6 @@ if file_vagas and file_colab:
                 )
 
                 loc_ok = loc_match
-                # Texto atualizado estritamente conforme solicitado (sem o campo de obs e trazendo o lugar de trabalho definitivo da vaga corretamente)
                 vaga_localidade_solicitacao = row.get("lugar de trabalho definitivo vaga", "-")
                 faltou_loc = (
                     ""
@@ -2058,7 +2068,6 @@ if file_vagas and file_colab:
                     )
                 )
                 
-                # Ajustando o display do rótulo da vaga para refletir 'Vaga exige: [lugar de trabalho definitivo]'
                 breakdown_html += _linha(
                     "A localidade do colaborador coincide com a vaga?",
                     p_loc if loc_ok else 0,
