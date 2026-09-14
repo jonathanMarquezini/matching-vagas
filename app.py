@@ -1,4 +1,3 @@
-[source: 11]
 from io import BytesIO
 import re
 import time
