@@ -891,7 +891,7 @@ def calcular_matching_colaborador(
         )
 
         loc_c_norm = normalizar_localidade(str(perfil_row.get("Localidade Municipio Colaborador", "")))
-        loc_v_norm = normalizar_localidade(str(row_vaga_i.get("lugar de trabalho definitivo vaga", "")))
+        loc_v_norm = normalizar_localidade(str(row_vaga_i.get("lugar de trabajo definitivo vaga", ""))) # CORRIGIDO AQUI
         loc_e_norm = normalizar_localidade(str(perfil_row.get("Localidade Estado Colaborador", "")))
 
         # Correção robusta para localidade (ex: colaborador de São Paulo e vaga em São Paulo)
@@ -947,7 +947,7 @@ def calcular_matching_colaborador(
             "perfil_suficiente": tem_perfil_suficiente,
             "loc_match": is_loc_match,
             "loc_colab": str(perfil_row.get("Localidade Municipio Colaborador", "-")),
-            "loc_vaga": str(row_vaga_i.get("lugar de trabalho definitivo vaga", "-")),
+            "loc_vaga": str(row_vaga_i.get("lugar de trabajo definitivo vaga", "-")), # CORRIGIDO AQUI
         })
 
     vagas_filtradas["match"] = final_scores
