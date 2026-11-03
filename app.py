@@ -891,10 +891,9 @@ def calcular_matching_colaborador(
         )
 
         loc_c_norm = normalizar_localidade(str(perfil_row.get("Localidade Municipio Colaborador", "")))
-        loc_v_norm = normalizar_localidade(str(row_vaga_i.get("lugar de trabajo definitivo vaga", ""))) # CORRIGIDO AQUI
+        loc_v_norm = normalizar_localidade(str(row_vaga_i.get("lugar de trabajo definitivo vaga", "")))
         loc_e_norm = normalizar_localidade(str(perfil_row.get("Localidade Estado Colaborador", "")))
 
-        # Correção robusta para localidade (ex: colaborador de São Paulo e vaga em São Paulo)
         is_loc_match = False
         if loc_c_norm and loc_v_norm and loc_c_norm != "-" and loc_v_norm != "-":
             if loc_c_norm in loc_v_norm or loc_v_norm in loc_c_norm or loc_e_norm in loc_v_norm or loc_v_norm in loc_e_norm:
@@ -903,7 +902,6 @@ def calcular_matching_colaborador(
             if loc_e_norm in loc_v_norm or loc_v_norm in loc_e_norm:
                 is_loc_match = True
         
-        # Se não houver dados explícitos de localidade cadastrados, assume neutro, mas se ambos indicarem SP, pontua 100%
         if not loc_c_norm or loc_c_norm == "-":
             score_localidade = 0.5
             is_loc_match = True
@@ -947,7 +945,7 @@ def calcular_matching_colaborador(
             "perfil_suficiente": tem_perfil_suficiente,
             "loc_match": is_loc_match,
             "loc_colab": str(perfil_row.get("Localidade Municipio Colaborador", "-")),
-            "loc_vaga": str(row_vaga_i.get("lugar de trabajo definitivo vaga", "-")), # CORRIGIDO AQUI
+            "loc_vaga": str(row_vaga_i.get("lugar de trabajo definitivo vaga", "-")),
         })
 
     vagas_filtradas["match"] = final_scores
@@ -1026,6 +1024,36 @@ if file_vagas and file_colab:
 
     if "necesidad" in vagas.columns:
         vagas = vagas.drop_duplicates(subset=["necesidad"])
+
+    # Mapeamento das novas colunas informativas de vagas
+    col_fecha_decision = encontrar_coluna(
+        vagas,
+        [
+            "fecha decision (actual)",
+            "fecha decision actual",
+            "fecha decision",
+            "fecha_decision",
+            "fecha_decision_actual",
+        ],
+    )
+    if col_fecha_decision:
+        vagas["Fecha decisión (actual)"] = vagas[col_fecha_decision].fillna("-").astype(str)
+    else:
+        vagas["Fecha decisión (actual)"] = "-"
+
+    col_persona_contacto = encontrar_coluna(
+        vagas,
+        [
+            "persona de contacto",
+            "persona_de_contacto",
+            "contacto",
+            "persona contacto",
+        ],
+    )
+    if col_persona_contacto:
+        vagas["Persona de Contacto"] = vagas[col_persona_contacto].fillna("-").astype(str)
+    else:
+        vagas["Persona de Contacto"] = "-"
 
     vagas["texto"] = (
         get_coluna(vagas, "conocimientos tecnicos")
@@ -1452,6 +1480,8 @@ if file_vagas and file_colab:
                 "rol reporting",
                 "tasa máxima deseable",
                 "match",
+                "Fecha decisión (actual)",
+                "Persona de Contacto",
                 "perfil profesional",
                 "perfil solicitado resumido",
                 "Lugar de Trabajo Vaga",
@@ -1571,6 +1601,8 @@ if file_vagas and file_colab:
                             "Tasa Máxima Deseable": vaga_row.get(
                                 "tasa máxima deseable", "-"
                             ),
+                            "Fecha decisión (actual)": vaga_row.get("Fecha decisión (actual)", "-"),
+                            "Persona de Contacto": vaga_row.get("Persona de Contacto", "-"),
                             "Perfil Profesional": vaga_row.get("perfil profesional", "-"),
                             "Perfil Solicitado Resumido": vaga_row.get(
                                 "perfil solicitado resumido", "-"
@@ -1802,6 +1834,10 @@ if file_vagas and file_colab:
                 **Rol:** {row.get('rol reporting', '-')}
 
                 **Taxa Máxima:** {row.get('tasa máxima deseable', '-')}
+
+                **Fecha decisión (actual):** {row.get('Fecha decisión (actual)', '-')}
+
+                **Persona de Contacto:** {row.get('Persona de Contacto', '-')}
 
                 **Lugar de Trabajo Vaga:** {row.get('Lugar de Trabajo Vaga', '-')}
 
