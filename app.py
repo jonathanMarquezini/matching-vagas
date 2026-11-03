@@ -1025,7 +1025,7 @@ if file_vagas and file_colab:
     if "necesidad" in vagas.columns:
         vagas = vagas.drop_duplicates(subset=["necesidad"])
 
-    # Mapeamento das novas colunas informativas de vagas
+    # Mapeamento das novas colunas informativas de vagas com tratamento de data em BR (DD/MM/AAAA)
     col_fecha_decision = encontrar_coluna(
         vagas,
         [
@@ -1037,7 +1037,8 @@ if file_vagas and file_colab:
         ],
     )
     if col_fecha_decision:
-        vagas["Fecha decisión (actual)"] = vagas[col_fecha_decision].fillna("-").astype(str)
+        datas_convertidas = pd.to_datetime(vagas[col_fecha_decision], errors="coerce")
+        vagas["Fecha decisión (actual)"] = datas_convertidas.dt.strftime("%d/%m/%Y").fillna("-")
     else:
         vagas["Fecha decisión (actual)"] = "-"
 
